@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: theme('colors.ink.950');
+    --bg-elev: theme('colors.ink.900');
+    --bg-hover: theme('colors.ink.800');
+    --text: theme('colors.ink.50');
+    --text-muted: theme('colors.ink.400');
+    --text-dim: theme('colors.ink.500');
+    --border: theme('colors.ink.800');
+    --input-bg: theme('colors.ink.900');
+    --btn-bg: theme('colors.ink.50');
+    --btn-fg: theme('colors.ink.950');
+  }
+  :root.light {
+    --bg: theme('colors.ink.50');
+    --bg-elev: #ffffff;
+    --bg-hover: theme('colors.ink.100');
+    --text: theme('colors.ink.900');
+    --text-muted: theme('colors.ink.600');
+    --text-dim: theme('colors.ink.500');
+    --border: theme('colors.ink.200');
+    --input-bg: #ffffff;
+    --btn-bg: theme('colors.ink.950');
+    --btn-fg: theme('colors.ink.50');
+  }
+  html { font-family: 'Inter', system-ui, sans-serif; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    @apply antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  * { border-color: var(--border); }
+}
+
+@layer components {
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    @apply rounded-lg;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    background: var(--btn-bg);
+    color: var(--btn-fg);
+    @apply btn hover:opacity-90;
+  }
+  .btn-ghost {
+    color: var(--text-muted);
+    @apply btn hover:bg-[var(--bg-hover)];
+  }
+  .btn-outline {
+    border: 1px solid var(--border);
+    color: var(--text);
+    @apply btn bg-transparent hover:bg-[var(--bg-hover)];
+  }
+  .input {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    @apply w-full rounded-md px-3 py-2 text-sm placeholder:text-[var(--text-dim)] focus:outline-none focus:ring-2 focus:ring-[var(--text-dim)];
+  }
+  .label {
+    color: var(--text-muted);
+    @apply block text-xs font-medium mb-1.5 uppercase tracking-wide;
+  }
+  .text-muted { color: var(--text-muted); }
+  .text-dim { color: var(--text-dim); }
+  .bg-elev { background: var(--bg-elev); }
+  .bg-hover-soft:hover { background: var(--bg-hover); }
+  .divider { border-color: var(--border); }
+  .logo {
+    font-family: 'Instrument Serif', Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Invert ink text/bg utilities in light mode so existing markup stays readable */
+:root.light .text-ink-50,
+:root.light .text-ink-100 { color: theme('colors.ink.900') !important; }
+:root.light .text-ink-200 { color: theme('colors.ink.800') !important; }
+:root.light .text-ink-300 { color: theme('colors.ink.700') !important; }
+:root.light .text-ink-400 { color: theme('colors.ink.600') !important; }
+:root.light .text-ink-500 { color: theme('colors.ink.500') !important; }
+:root.light .text-ink-600 { color: theme('colors.ink.400') !important; }
+
+:root.light .bg-ink-950 { background-color: theme('colors.ink.50') !important; }
+:root.light .bg-ink-900 { background-color: #ffffff !important; }
+:root.light .bg-ink-800 { background-color: theme('colors.ink.200') !important; }
+:root.light .bg-ink-700 { background-color: theme('colors.ink.300') !important; }
+
+:root.light .border-ink-800 { border-color: theme('colors.ink.200') !important; }
+:root.light .border-ink-700 { border-color: theme('colors.ink.300') !important; }
+:root.light .border-ink-600 { border-color: theme('colors.ink.400') !important; }
+:root.light .divide-ink-800 > * + * { border-color: theme('colors.ink.200') !important; }
+
+/* Primary button inverts */
+:root.light .bg-ink-50.text-ink-950 { background-color: theme('colors.ink.950') !important; color: theme('colors.ink.50') !important; }
+
+/* Selected slots in booking/schedule */
+:root.light .bg-ink-50 { background-color: theme('colors.ink.950') !important; }
+
+/* Hover states that used dark-ish bg should get soft gray in light */
+:root.light [class*="hover:bg-ink-800"]:hover { background-color: theme('colors.ink.100') !important; }
+:root.light [class*="hover:bg-ink-900"]:hover { background-color: theme('colors.ink.100') !important; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }

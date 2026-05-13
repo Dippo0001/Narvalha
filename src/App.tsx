@@ -24,10 +24,7 @@ import PublicBooking from './pages/PublicBooking';
 function AppRoutes() {
   const { session, loading, member } = useAuth();
 
-  // BYPASS LOGIN FOR DEVELOPMENT
-  const isDevBypass = true;
-
-  if (loading && !isDevBypass) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-ink-950 flex items-center justify-center">
         <div className="logo text-3xl text-ink-500 animate-pulse">Navalha</div>
@@ -35,7 +32,7 @@ function AppRoutes() {
     );
   }
 
-  if (!session && !isDevBypass) {
+  if (!session) {
     return (
       <Routes>
         <Route path="/b/:slug" element={<PublicBooking />} />
@@ -46,7 +43,7 @@ function AppRoutes() {
     );
   }
 
-  if (!member && !isDevBypass) {
+  if (!member) {
     return (
       <Routes>
         <Route path="/onboarding" element={<Onboarding />} />

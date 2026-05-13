@@ -23,71 +23,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<Member | null>(null);
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
 
-  // MOCK DATA FOR BYPASS
-  const mockMember: Member = {
-    id: 'mock-member-id',
-    user_id: 'mock-user-id',
-    barbershop_id: 'mock-barbershop-id',
-    nome: 'Admin Mock',
-    email: 'admin@mock.com',
-    role: 'admin',
-    ativo: true,
-    created_at: new Date().toISOString(),
-  };
-
-  const mockBarbershop: Barbershop = {
-    id: 'mock-barbershop-id',
-    nome: 'Barbearia Mock',
-    slug: 'barbearia-mock',
-    created_at: new Date().toISOString(),
-  };
-
   const loadMember = async (userId: string) => {
-    // If in dev bypass, we can skip actual Supabase calls if needed
-    // or just let it fail and use mock
-    try {
-      const { data: m } = await supabase
-        .from('members')
+    const { data: m } = await supabase
+      .from('members')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ativo', true)
+      .limit(1)
+      .maybeSingle();
+    setMember(m as Member | null);
+    if (m) {
+      const { data: b } = await supabase
+        .from('barbershops')
         .select('*')
-        .eq('user_id', userId)
-        .eq('ativo', true)
-        .limit(1)
+        .eq('id', (m as Member).barbershop_id)
         .maybeSingle();
-      setMember(m as Member | null);
-      if (m) {
-        const { data: b } = await supabase
-          .from('barbershops')
-          .select('*')
-          .eq('id', (m as Member).barbershop_id)
-          .maybeSingle();
-        setBarbershop(b as Barbershop | null);
-      } else {
-        setBarbershop(null);
-      }
-    } catch (e) {
-      console.error("Auth bypass active, using mock data", e);
-      setMember(mockMember);
-      setBarbershop(mockBarbershop);
+      setBarbershop(b as Barbershop | null);
+    } else {
+      setBarbershop(null);
     }
   };
 
   const refresh = async () => {
-    try {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      if (data.session) {
-        await loadMember(data.session.user.id);
-      } else {
-        // BYPASS: If no session, set mock data
-        setMember(mockMember);
-        setBarbershop(mockBarbershop);
-        setSession({ user: { id: 'mock-user-id' } } as any);
-      }
-    } catch (e) {
-      setMember(mockMember);
-      setBarbershop(mockBarbershop);
-      setSession({ user: { id: 'mock-user-id' } } as any);
-    }
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    if (data.session) await loadMember(data.session.user.id);
     setLoading(false);
   };
 

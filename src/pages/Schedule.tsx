@@ -111,71 +111,84 @@ export default function Schedule() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
       <PageHeader title="Agenda" subtitle={format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
         actions={
-          <>
-            <select className="input w-auto" value={barberFilter} onChange={(e) => setBarberFilter(e.target.value)}>
-              <option value="all">Todos os barbeiros</option>
+          <div className="flex flex-wrap gap-2">
+            <select className="input input-sm w-auto" value={barberFilter} onChange={(e) => setBarberFilter(e.target.value)}>
+              <option value="all">Todos</option>
               {(barbers ?? []).map((b) => <option key={b.id} value={b.id}>{b.nome_exibicao}</option>)}
             </select>
-            <button className="btn-ghost" onClick={() => setDay(addDays(day, -1))}><ChevronLeft size={16} /></button>
-            <button className="btn-outline" onClick={() => setDay(startOfDay(new Date()))}>Hoje</button>
-            <button className="btn-ghost" onClick={() => setDay(addDays(day, 1))}><ChevronRight size={16} /></button>
-          </>
+            <div className="flex gap-1">
+              <button className="btn-ghost btn-xs" onClick={() => setDay(addDays(day, -1))}><ChevronLeft size={14} /></button>
+              <button className="btn-outline btn-xs" onClick={() => setDay(startOfDay(new Date()))}>Hoje</button>
+              <button className="btn-ghost btn-xs" onClick={() => setDay(addDays(day, 1))}><ChevronRight size={14} /></button>
+            </div>
+          </div>
         } />
 
-      <div className="card overflow-hidden">
-        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${visibleBarbers.length}, minmax(140px, 1fr))` }}>
-          <div className="border-b border-r border-ink-800 p-3 text-xs text-ink-500"></div>
+      <div className="card flex-1 flex flex-col overflow-hidden">
+        {/* Header de Barbeiros - Fixo no topo */}
+        <div className="grid border-b border-ink-800 bg-ink-900/50" style={{ gridTemplateColumns: `60px repeat(${visibleBarbers.length}, minmax(120px, 1fr))` }}>
+          <div className="p-2 border-r border-ink-800"></div>
           {visibleBarbers.map((b) => (
-            <div key={b.id} className="border-b border-ink-800 p-3 text-sm font-medium text-ink-50 text-center">
+            <div key={b.id} className="p-2 text-xs font-bold text-ink-300 text-center border-r border-ink-800 last:border-r-0 truncate">
               {b.nome_exibicao}
             </div>
           ))}
+        </div>
 
-          {slots.map((t, i) => {
-            const showLabel = t.getMinutes() === 0;
-            return (
-              <div key={i} className="contents">
-                <div className="border-r border-ink-800 px-2 py-1 text-xs text-ink-500 text-right">
-                  {showLabel ? format(t, 'HH:mm') : ''}
+        {/* Grade de Horários - Rolável */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="grid relative" style={{ gridTemplateColumns: `60px repeat(${visibleBarbers.length}, minmax(120px, 1fr))` }}>
+            {slots.map((t, i) => {
+              const showLabel = t.getMinutes() === 0;
+              const isHourStart = t.getMinutes() === 0;
+              
+              return (
+                <div key={i} className="contents">
+                  <div className={`px-1 py-0.5 text-[10px] text-ink-500 text-right border-r border-ink-800 flex items-center justify-end h-7 ${isHourStart ? 'bg-ink-900/30' : ''}`}>
+                    {showLabel ? format(t, 'HH:mm') : ''}
+                  </div>
+                  {visibleBarbers.map((b) => {
+                    const apptHere = (apptsByBarber[b.id] ?? []).find((a: any) => {
+                      const start = parseISO(a.data_hora);
+                      const end = addMinutes(start, a.duracao_min);
+                      return t >= start && t < end;
+                    });
+                    const isStart = apptHere && format(parseISO((apptHere as any).data_hora), 'HH:mm') === format(t, 'HH:mm');
+                    
+                    return (
+                      <div key={b.id} className={`border-b border-r border-ink-800 h-7 relative group last:border-r-0 ${isHourStart ? 'bg-ink-900/10' : ''}`}>
+                        {!apptHere && (
+                          <button
+                            onClick={() => setSlotModal({ barber_id: b.id, time: t })}
+                            className="absolute inset-0 hover:bg-ink-500/10 transition-colors"
+                          >
+                            <Plus size={10} className="absolute top-1 right-1 text-ink-600 opacity-0 group-hover:opacity-100" />
+                          </button>
+                        )}
+                        {apptHere && isStart && (
+                          <button
+                            onClick={() => setApptModal(apptHere as any)}
+                            className={`absolute inset-x-0.5 top-0.5 px-1.5 py-0.5 rounded shadow-sm text-[10px] text-left overflow-hidden z-10 hover:brightness-110 transition-all ${STATUS_STYLES[(apptHere as any).status]}`}
+                            style={{ height: `${((apptHere as any).duracao_min / SLOT_MIN) * 28 - 4}px` }}
+                          >
+                            <div className="font-bold truncate leading-tight">{(apptHere as any).clients?.nome ?? '—'}</div>
+                            { (apptHere as any).duracao_min >= 30 && (
+                              <div className="opacity-80 truncate text-[9px] leading-tight mt-0.5">
+                                {(apptHere as any).appointment_services?.map((s: any) => s.services?.nome).filter(Boolean).join(', ')}
+                              </div>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                {visibleBarbers.map((b) => {
-                  const apptHere = (apptsByBarber[b.id] ?? []).find((a: any) => {
-                    const start = parseISO(a.data_hora);
-                    const end = addMinutes(start, a.duracao_min);
-                    return t >= start && t < end;
-                  });
-                  const isStart = apptHere && format(parseISO((apptHere as any).data_hora), 'HH:mm') === format(t, 'HH:mm');
-                  return (
-                    <div key={b.id} className={`border-b border-r border-ink-800 h-9 relative ${showLabel ? 'border-t-ink-700' : ''}`}>
-                      {!apptHere && (
-                        <button
-                          onClick={() => setSlotModal({ barber_id: b.id, time: t })}
-                          className="absolute inset-0 hover:bg-ink-800/50 transition-colors group"
-                        >
-                          <Plus size={12} className="absolute top-1 right-1 text-ink-600 opacity-0 group-hover:opacity-100" />
-                        </button>
-                      )}
-                      {apptHere && isStart && (
-                        <button
-                          onClick={() => setApptModal(apptHere as any)}
-                          className={`absolute inset-x-0.5 top-0.5 px-2 py-1 rounded text-xs text-left overflow-hidden ${STATUS_STYLES[(apptHere as any).status]}`}
-                          style={{ height: `${((apptHere as any).duracao_min / SLOT_MIN) * 36 - 4}px` }}
-                        >
-                          <div className="font-medium truncate">{(apptHere as any).clients?.nome ?? '—'}</div>
-                          <div className="text-[10px] opacity-75 truncate">
-                            {(apptHere as any).appointment_services?.map((s: any) => s.services?.nome).filter(Boolean).join(', ')}
-                          </div>
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 

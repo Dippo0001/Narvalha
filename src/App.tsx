@@ -54,7 +54,8 @@ function AppRoutes() {
     );
   }
 
-  // Subscription check
+  // Subscription check (Temporarily disabled by user request)
+  /*
   const isSubscriptionActive = 
     barbershop?.subscription_status === 'active' || 
     (barbershop?.subscription_status === 'trialing' && new Date(barbershop.trial_ends_at) > new Date()) ||
@@ -68,6 +69,7 @@ function AppRoutes() {
       </Routes>
     );
   }
+  */
 
   return (
     <CashProvider>

@@ -12,12 +12,28 @@ export default function Signup() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) { setLoading(false); return toast.error(error.message); }
-    // Attempt immediate sign-in (email confirm is disabled)
-    await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    nav('/onboarding');
+    
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    
+    if (error) {
+      setLoading(false);
+      return toast.error(error.message);
+    }
+
+    // Se o Supabase retornar uma sessão imediatamente, é porque a confirmação de e-mail está desativada
+    if (data.session) {
+      toast.success('Conta criada com sucesso!');
+      setLoading(false);
+      nav('/onboarding');
+    } else {
+      // Se não houver sessão, o usuário precisa confirmar o e-mail
+      toast.success('Conta criada! Por favor, verifique seu Gmail para confirmar o cadastro.', {
+        duration: 8000,
+      });
+      setLoading(false);
+      // Opcionalmente podemos redirecionar para o login após o aviso
+      setTimeout(() => nav('/login'), 3000);
+    }
   };
 
   return (

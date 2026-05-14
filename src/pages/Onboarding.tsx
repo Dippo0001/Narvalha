@@ -91,11 +91,18 @@ export default function Onboarding() {
         {step === 3 && (
           <div className="card p-6 space-y-4">
             <h2 className="text-lg text-ink-50">Seus serviços</h2>
+            
+            <div className="grid grid-cols-6 gap-2 px-1">
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-3">Serviço</span>
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-1 text-center">Tempo</span>
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-2 text-center">Preço</span>
+            </div>
+
             {services.map((s, i) => (
               <div key={i} className="grid grid-cols-6 gap-2">
                 <input className="input col-span-3" value={s.nome} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} />
-                <input className="input col-span-1" type="number" value={s.duracao_min} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, duracao_min: +e.target.value } : x))} />
-                <input className="input col-span-2" type="number" step="0.01" value={s.valor} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, valor: +e.target.value } : x))} />
+                <input className="input col-span-1 text-center" type="number" value={s.duracao_min} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, duracao_min: +e.target.value } : x))} />
+                <input className="input col-span-2 text-center" type="number" step="0.01" value={s.valor} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, valor: +e.target.value } : x))} />
               </div>
             ))}
             <button onClick={createServices} className="btn-primary w-full" disabled={loading}>Concluir</button>

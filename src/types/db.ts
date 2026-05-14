@@ -27,6 +27,7 @@ export interface Product {
 export interface Client {
   id: string; barbershop_id: string; nome: string; telefone: string; email: string;
   aniversario: string | null; observacoes: string; tags: string[];
+  lembrete_dias: number; ultima_visita: string | null;
 }
 export interface Appointment {
   id: string; barbershop_id: string; client_id: string; barber_id: string;

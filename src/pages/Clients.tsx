@@ -47,6 +47,9 @@ export default function Clients() {
   );
 }
 
+import { format, differenceInDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
 /* ──────────────────────────── CLIENTES ──────────────────────────── */
 function ClientsTab() {
   const { barbershop } = useAuth();
@@ -77,6 +80,12 @@ function ClientsTab() {
     setModal(null);
   };
 
+  const sendReminder = (c: Client) => {
+    const msg = `Olá ${c.nome}! 👋 Faz um tempo que não te vemos na barbearia. Que tal agendar um horário para renovar o visual?`;
+    const wa = `https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+    window.open(wa, '_blank');
+  };
+
   return (
     <>
       <div className="flex gap-3 mb-4">
@@ -93,27 +102,44 @@ function ClientsTab() {
         {!isLoading && (!clients || clients.length === 0) && (
           <Empty icon={User} text="Nenhum cliente cadastrado" />
         )}
-        {(clients ?? []).map((c) => (
-          <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-hover-soft transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium shrink-0"
-                style={{ background: 'var(--bg-hover)' }}>
-                {c.nome.charAt(0).toUpperCase()}
+        {(clients ?? []).map((c) => {
+          const diasSemVisita = c.ultima_visita ? differenceInDays(new Date(), new Date(c.ultima_visita)) : null;
+          const isAtrasado = diasSemVisita !== null && diasSemVisita >= c.lembrete_dias;
+
+          return (
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-hover-soft transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium shrink-0"
+                  style={{ background: 'var(--bg-hover)' }}>
+                  {c.nome.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-medium">{c.nome}</div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                    <span className="text-xs text-muted">{c.telefone || 'Sem telefone'}</span>
+                    {c.ultima_visita && (
+                      <span className={`text-[10px] ${isAtrasado ? 'text-amber-400 font-medium' : 'text-muted'}`}>
+                        Última visita: {format(new Date(c.ultima_visita), 'dd/MM/yyyy')} 
+                        {diasSemVisita !== null && ` (${diasSemVisita} dias)`}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="font-medium">{c.nome}</div>
-                <div className="text-xs text-muted">{c.telefone || 'Sem telefone'}</div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => sendReminder(c)} 
+                  className={`btn-ghost px-2 py-1.5 flex items-center gap-1.5 text-xs ${isAtrasado ? 'text-amber-400 border border-amber-400/20 bg-amber-400/5' : ''}`}
+                  title="Enviar lembrete WhatsApp"
+                >
+                  <MessageCircle size={13} />
+                  <span className="hidden sm:inline">Lembrete</span>
+                </button>
+                <button onClick={() => setModal(c)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {c.tags.map((t) => (
-                <span key={t} className="text-[10px] px-2 py-0.5 rounded-full"
-                  style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{t}</span>
-              ))}
-              <button onClick={() => setModal(c)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Novo cliente' : 'Editar cliente'}>
@@ -129,11 +155,32 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
   const [email, setEmail] = useState(initial?.email ?? '');
   const [obs, setObs] = useState(initial?.observacoes ?? '');
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '));
+  const [lembreteDias, setLembreteDias] = useState(initial?.lembrete_dias ?? 30);
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ nome, telefone, email, observacoes: obs, tags: tags.split(',').map(t => t.trim()).filter(Boolean) }); }}
+    <form onSubmit={(e) => { e.preventDefault(); onSave({ 
+      nome, 
+      telefone, 
+      email, 
+      observacoes: obs, 
+      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      lembrete_dias: lembreteDias 
+    }); }}
       className="space-y-4">
       <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus /></div>
-      <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} required /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} required /></div>
+        <div>
+          <label className="label">Ciclo de Retorno (Dias)</label>
+          <select className="input" value={lembreteDias} onChange={(e) => setLembreteDias(+e.target.value)}>
+            <option value={15}>15 dias</option>
+            <option value={30}>30 dias</option>
+            <option value={45}>45 dias</option>
+            <option value={60}>60 dias</option>
+            <option value={120}>120 dias</option>
+          </select>
+        </div>
+      </div>
       <div><label className="label">E-mail</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div><label className="label">Tags (separadas por vírgula)</label><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="vip, aniversariante" /></div>
       <div><label className="label">Observações</label><textarea className="input" rows={3} value={obs} onChange={(e) => setObs(e.target.value)} /></div>

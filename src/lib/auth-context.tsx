@@ -8,20 +8,25 @@ interface AuthState {
   loading: boolean;
   member: Member | null;
   barbershop: Barbershop | null;
+  isAdmin: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthState>({
-  session: null, loading: true, member: null, barbershop: null,
+  session: null, loading: true, member: null, barbershop: null, isAdmin: false,
   refresh: async () => {}, signOut: async () => {},
 });
+
+const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br']; // Example
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<Member | null>(null);
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
+
+  const isAdmin = !!session?.user?.email && ADMIN_EMAILS.includes(session.user.email);
 
   const loadMember = async (userId: string) => {
     const { data: m } = await supabase
@@ -70,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, loading, member, barbershop, refresh, signOut }}>
+    <Ctx.Provider value={{ session, loading, member, barbershop, isAdmin, refresh, signOut }}>
       {children}
     </Ctx.Provider>
   );

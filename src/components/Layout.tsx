@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet, Settings, LogOut, Link as LinkIcon, Sun, Moon, Store, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet, Settings, LogOut, Link as LinkIcon, Sun, Moon, Store, ShoppingCart, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ const nav = [
 ];
 
 export default function Layout() {
-  const { barbershop, signOut } = useAuth();
+  const { barbershop, signOut, isAdmin } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
@@ -53,6 +53,20 @@ export default function Layout() {
               {label}
             </NavLink>
           ))}
+          {isAdmin && (
+            <NavLink
+              to="/saas-admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors mt-6 border-t border-border pt-6 ${
+                  isActive ? 'bg-hover-soft font-medium text-amber-500' : 'text-amber-500/70 hover:bg-hover-soft'
+                }`
+              }
+              style={({ isActive }: any) => isActive ? { background: 'var(--bg-hover)' } : {}}
+            >
+              <ShieldCheck size={16} strokeWidth={1.75} />
+              Admin SaaS
+            </NavLink>
+          )}
         </nav>
         <div className="border-t divider p-3 space-y-1">
           <button onClick={copyLink} className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted bg-hover-soft">

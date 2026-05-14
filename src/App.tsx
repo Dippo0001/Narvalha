@@ -20,9 +20,11 @@ import CaixaResumo from './pages/CaixaResumo';
 import CaixaFechar from './pages/CaixaFechar';
 import CaixaHistorico from './pages/CaixaHistorico';
 import PublicBooking from './pages/PublicBooking';
+import SubscriptionBlocked from './pages/SubscriptionBlocked';
+import SaaSAdmin from './pages/SaaSAdmin';
 
 function AppRoutes() {
-  const { session, loading, member } = useAuth();
+  const { session, loading, member, barbershop, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -52,6 +54,21 @@ function AppRoutes() {
     );
   }
 
+  // Subscription check
+  const isSubscriptionActive = 
+    barbershop?.subscription_status === 'active' || 
+    (barbershop?.subscription_status === 'trialing' && new Date(barbershop.trial_ends_at) > new Date()) ||
+    (barbershop?.paid_until && new Date(barbershop.paid_until) > new Date());
+
+  if (!isSubscriptionActive) {
+    return (
+      <Routes>
+        <Route path="/assinatura-bloqueada" element={<SubscriptionBlocked />} />
+        <Route path="*" element={<Navigate to="/assinatura-bloqueada" replace />} />
+      </Routes>
+    );
+  }
+
   return (
     <CashProvider>
       <Routes>
@@ -71,6 +88,7 @@ function AppRoutes() {
           <Route path="/pdv" element={<PDV />} />
           <Route path="/financeiro" element={<Finance />} />
           <Route path="/configuracoes" element={<Settings />} />
+          {isAdmin && <Route path="/saas-admin" element={<SaaSAdmin />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -5,8 +5,20 @@ export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito';
 export type OrderStatus = 'aberta' | 'fechada' | 'cancelada';
 
 export interface Barbershop {
-  id: string; nome: string; slug: string; telefone: string; endereco: string;
-  timezone: string; logo_url: string; cancel_min_hours: number; num_cadeiras: number;
+  id: string;
+  nome: string;
+  slug: string;
+  telefone: string;
+  endereco: string;
+  timezone: string;
+  logo_url: string;
+  cancel_min_hours: number;
+  num_cadeiras: number;
+  plan: 'trial' | 'silver' | 'gold' | 'platinum';
+  subscription_status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'incomplete';
+  subscription_id: string | null;
+  trial_ends_at: string;
+  paid_until: string | null;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {

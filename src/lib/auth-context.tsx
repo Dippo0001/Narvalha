@@ -18,7 +18,7 @@ const Ctx = createContext<AuthState>({
   refresh: async () => {}, signOut: async () => {},
 });
 
-const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br']; // Example
+const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'Diarleyduarte17@gmail.com']; // Example
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);

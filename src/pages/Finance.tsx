@@ -94,6 +94,8 @@ function Caixa() {
 const CAT_PAGAR = ['aluguel','folha','fornecedores','energia','agua','internet','equipamentos','marketing','outros'];
 const CAT_RECEBER = ['servico','produto','assinatura','pacote','cashback','outros'];
 
+const DISABLED_CATS = ['assinatura', 'cashback'];
+
 function ContasPagar() {
   const { barbershop } = useAuth();
   const qc = useQueryClient();
@@ -326,7 +328,14 @@ function ContaForm({ initial, categorias, onSave, tipo }: {
         <div>
           <label className="label">Categoria</label>
           <select className="input" value={form.categoria} onChange={e => f('categoria', e.target.value)}>
-            {categorias.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+            {categorias.map(c => {
+              const disabled = DISABLED_CATS.includes(c);
+              return (
+                <option key={c} value={c} disabled={disabled} className="capitalize">
+                  {c} {disabled ? '(Em desenvolvimento)' : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div>

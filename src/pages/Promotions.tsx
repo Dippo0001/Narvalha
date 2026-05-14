@@ -50,8 +50,8 @@ interface Promotion {
 }
 
 /* ─── catalog ────────────────────────────────────────────────────── */
-const TIPOS: { tipo: PromotionTipo; label: string; sub: string; icon: any; color: string }[] = [
-  { tipo: 'cashback',         label: 'Cashback',                icon: Coins,       color: 'text-amber-400',  sub: '% de volta a cada corte' },
+const TIPOS: { tipo: PromotionTipo; label: string; sub: string; icon: any; color: string; disabled?: boolean }[] = [
+  { tipo: 'cashback',         label: 'Cashback',                icon: Coins,       color: 'text-amber-400',  sub: '% de volta a cada corte', disabled: true },
   { tipo: 'primeiro_corte',   label: 'Primeiro Corte',          icon: Scissors,    color: 'text-sky-400',    sub: 'Desconto na 1ª visita' },
   { tipo: 'aniversario',      label: 'Aniversário',             icon: Cake,        color: 'text-pink-400',   sub: 'Desconto no dia/semana/mês' },
   { tipo: 'fidelidade',       label: 'Fidelidade',              icon: Trophy,      color: 'text-yellow-400', sub: 'Corte X vezes → próximo grátis' },
@@ -61,7 +61,7 @@ const TIPOS: { tipo: PromotionTipo; label: string; sub: string; icon: any; color
   { tipo: 'combo',            label: 'Combo de Serviços',       icon: Layers,      color: 'text-orange-400', sub: 'Pacote de serviços com valor fixo' },
   { tipo: 'retorno',          label: 'Retorno',                 icon: RotateCcw,   color: 'text-blue-400',   sub: 'Desconto ao retornar em X dias' },
   { tipo: 'pacote',           label: 'Pacote Pré-pago',         icon: PackageCheck,color: 'text-lime-400',   sub: 'Pague 4, leve 5 cortes' },
-  { tipo: 'assinatura',       label: 'Assinatura Mensal',       icon: CreditCard,  color: 'text-violet-400', sub: 'Receita recorrente previsível' },
+  { tipo: 'assinatura',       label: 'Assinatura Mensal',       icon: CreditCard,  color: 'text-violet-400', sub: 'Receita recorrente previsível', disabled: true },
   { tipo: 'produto_servico',  label: 'Produto + Serviço',       icon: ShoppingBag, color: 'text-rose-400',   sub: 'Produto com desconto no dia do corte' },
 ];
 
@@ -179,16 +179,20 @@ export default function Promotions() {
           {TIPOS.map((t) => (
             <button
               key={t.tipo}
+              disabled={t.disabled}
               onClick={() => { setNewTipo(t.tipo); setPickModal(false); }}
-              className="flex items-center gap-3 p-3 rounded-lg border text-left transition-colors hover:bg-hover-soft"
+              className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${t.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-hover-soft'}`}
               style={{ borderColor: 'var(--border)' }}
             >
               <t.icon size={20} className={t.color} />
               <div>
-                <div className="text-sm font-medium">{t.label}</div>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  {t.label}
+                  {t.disabled && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">Em desenvolvimento</span>}
+                </div>
                 <div className="text-xs text-muted">{t.sub}</div>
               </div>
-              <ChevronRight size={14} className="ml-auto text-muted shrink-0" />
+              {!t.disabled && <ChevronRight size={14} className="ml-auto text-muted shrink-0" />}
             </button>
           ))}
         </div>

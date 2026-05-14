@@ -6,7 +6,7 @@ export type OrderStatus = 'aberta' | 'fechada' | 'cancelada';
 
 export interface Barbershop {
   id: string; nome: string; slug: string; telefone: string; endereco: string;
-  timezone: string; logo_url: string; cancel_min_hours: number;
+  timezone: string; logo_url: string; cancel_min_hours: number; num_cadeiras: number;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {

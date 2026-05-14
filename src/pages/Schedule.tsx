@@ -114,7 +114,11 @@ export default function Schedule() {
     <div className="p-4 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
       <PageHeader title="Agenda" subtitle={format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <button className="btn-primary btn-sm gap-1" onClick={() => setSlotModal({ barber_id: barbers?.[0]?.id ?? '', time: new Date() })}>
+              <Plus size={16} /> Novo Agendamento
+            </button>
+            <div className="h-6 w-px bg-ink-800 mx-1" />
             <select className="input input-sm w-auto" value={barberFilter} onChange={(e) => setBarberFilter(e.target.value)}>
               <option value="all">Todos</option>
               {(barbers ?? []).map((b) => <option key={b.id} value={b.id}>{b.nome_exibicao}</option>)}
@@ -219,11 +223,22 @@ export default function Schedule() {
 
 function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date }; onClose: () => void }) {
   const { barbershop } = useAuth();
+  const [selectedBarber, setSelectedBarber] = useState(slot.barber_id);
+  const [selectedTime, setSelectedTime] = useState(format(slot.time, "yyyy-MM-dd'T'HH:mm"));
   const [clientQuery, setClientQuery] = useState('');
   const [clientId, setClientId] = useState<string | null>(null);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [serviceIds, setServiceIds] = useState<string[]>([]);
+
+  const { data: barbers } = useQuery({
+    queryKey: ['barbers-list', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('barbers').select('*').eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome_exibicao');
+      return (data ?? []) as Barber[];
+    },
+  });
 
   const { data: clients } = useQuery({
     queryKey: ['clients-search', barbershop?.id, clientQuery],
@@ -250,7 +265,7 @@ function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!barbershop) return;
+    if (!barbershop || !selectedBarber) return;
     let cid = clientId;
     if (!cid) {
       if (!newClientName || !newClientPhone) return toast.error('Cliente é obrigatório');
@@ -261,8 +276,8 @@ function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date 
       cid = c.id;
     }
     const { data: appt, error } = await supabase.from('appointments').insert({
-      barbershop_id: barbershop.id, client_id: cid, barber_id: slot.barber_id,
-      data_hora: slot.time.toISOString(), duracao_min: totalDuration, status: 'agendado', origem: 'manual',
+      barbershop_id: barbershop.id, client_id: cid, barber_id: selectedBarber,
+      data_hora: new Date(selectedTime).toISOString(), duracao_min: totalDuration, status: 'agendado', origem: 'manual',
     }).select('id').single();
     if (error) return toast.error(error.message);
     if (serviceIds.length) {
@@ -274,8 +289,18 @@ function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="text-sm text-ink-400">
-        {format(slot.time, "dd/MM 'às' HH:mm", { locale: ptBR })}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label">Membro da Equipe</label>
+          <select className="input" value={selectedBarber} onChange={(e) => setSelectedBarber(e.target.value)} required>
+            <option value="">Selecione...</option>
+            {(barbers ?? []).map((b) => <option key={b.id} value={b.id}>{b.nome_exibicao}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Data e Horário</label>
+          <input className="input" type="datetime-local" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} required />
+        </div>
       </div>
       <div>
         <label className="label">Cliente</label>

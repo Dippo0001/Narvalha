@@ -17,11 +17,16 @@ export default function Settings() {
   const [endereco, setEndereco] = useState(barbershop?.endereco ?? '');
   const [slug, setSlug] = useState(barbershop?.slug ?? '');
   const [cancel, setCancel] = useState(barbershop?.cancel_min_hours ?? 2);
+  const [numCadeiras, setNumCadeiras] = useState(barbershop?.num_cadeiras ?? 1);
 
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barbershop) return;
-    const { error } = await supabase.from('barbershops').update({ nome, telefone, endereco, slug, cancel_min_hours: cancel }).eq('id', barbershop.id);
+    const { error } = await supabase.from('barbershops').update({ 
+      nome, telefone, endereco, slug, 
+      cancel_min_hours: cancel,
+      num_cadeiras: numCadeiras
+    }).eq('id', barbershop.id);
     if (error) return toast.error(error.message);
     toast.success('Salvo');
     refresh();
@@ -42,6 +47,11 @@ export default function Settings() {
           <div><label className="label">Slug</label><input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} /></div>
           <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
           <div><label className="label">Endereço</label><input className="input" value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+          <div>
+            <label className="label">Número de Cadeiras (Capacidade simultânea)</label>
+            <input className="input" type="number" min={1} value={numCadeiras} onChange={(e) => setNumCadeiras(+e.target.value)} />
+            <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
+          </div>
           <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
           <button className="btn-primary">Salvar</button>
         </form>

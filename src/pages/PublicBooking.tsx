@@ -57,38 +57,58 @@ export default function PublicBooking() {
   }, [barbers, barberId]);
 
   const { data: busy } = useQuery({
-    queryKey: ['pubbusy', shop?.id, date.toISOString(), chosenBarbers.map(b => b.id).join(',')],
-    enabled: !!shop && chosenBarbers.length > 0,
+    queryKey: ['pubbusy', shop?.id, date.toISOString()],
+    enabled: !!shop,
     queryFn: async () => {
       const start = startOfDay(date).toISOString();
       const end = addDays(startOfDay(date), 1).toISOString();
       const { data } = await supabase.from('appointments').select('barber_id,data_hora,duracao_min,status')
-        .in('barber_id', chosenBarbers.map(b => b.id)).gte('data_hora', start).lt('data_hora', end);
+        .eq('barbershop_id', shop.id).gte('data_hora', start).lt('data_hora', end);
       return (data ?? []).filter((a: any) => !['cancelado', 'no_show'].includes(a.status));
     },
   });
 
   const availableSlots = useMemo(() => {
     const slots: { time: Date; barber_id: string }[] = [];
+    if (!shop) return slots;
+    
     const base = startOfDay(date);
+    const maxChairs = shop.num_cadeiras || 1;
+
     for (let h = 8; h < 21; h++) {
       for (let m = 0; m < 60; m += 15) {
         const t = addMinutes(base, h * 60 + m);
         if (t < new Date()) continue;
+
+        const end = addMinutes(t, totalDuration);
+
+        // 1. Verificar ocupação total das cadeiras
+        const occupiedChairs = (busy ?? []).filter((a: any) => {
+          const s = parseISO(a.data_hora);
+          const e = addMinutes(s, a.duracao_min);
+          return t < e && end > s;
+        }).length;
+
+        if (occupiedChairs >= maxChairs) continue;
+
+        // 2. Tentar encaixar com um barbeiro disponível
         for (const b of chosenBarbers) {
-          const end = addMinutes(t, totalDuration);
-          const hasConflict = (busy ?? []).some((a: any) => {
+          const barberBusy = (busy ?? []).some((a: any) => {
             if (a.barber_id !== b.id) return false;
             const s = parseISO(a.data_hora);
             const e = addMinutes(s, a.duracao_min);
             return t < e && end > s;
           });
-          if (!hasConflict) { slots.push({ time: t, barber_id: b.id }); break; }
+
+          if (!barberBusy) {
+            slots.push({ time: t, barber_id: b.id });
+            break; 
+          }
         }
       }
     }
     return slots;
-  }, [busy, chosenBarbers, date, totalDuration]);
+  }, [busy, chosenBarbers, date, totalDuration, shop]);
 
   const submit = async () => {
     if (!shop || !time || !nome || !telefone) return;

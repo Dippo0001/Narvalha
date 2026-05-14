@@ -3,7 +3,6 @@ import { LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet,
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
 import { toast } from 'sonner';
-import CashBanner from './CashBanner';
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -74,7 +73,6 @@ export default function Layout() {
         </div>
       </aside>
       <main className="flex-1 overflow-auto flex flex-col">
-        <CashBanner />
         <div className="flex-1 overflow-auto">
           <Outlet />
         </div>

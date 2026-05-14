@@ -27,6 +27,11 @@ interface CartItem {
   comissao_percentual?: number;
 }
 
+interface VendaState {
+  client: Client | null;
+  barberId: string | null;
+}
+
 /* ─── PDV ────────────────────────────────────────────────────────── */
 export default function PDV() {
   const { barbershop, member } = useAuth();
@@ -34,13 +39,24 @@ export default function PDV() {
   const qc = useQueryClient();
 
   const [step, setStep] = useState<Step>('idle');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [vendaState, setVendaState] = useState<VendaState>({ client: null, barberId: null });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [desconto, setDesconto] = useState(0);
   const [svcSearch, setSvcSearch] = useState('');
   const [prodSearch, setProdSearch] = useState('');
   const [cancelModal, setCancelModal] = useState(false);
   const [doneInfo, setDoneInfo] = useState<{ total: number; telefone: string } | null>(null);
+
+  // barbers
+  const { data: barbers } = useQuery({
+    queryKey: ['barbers-pdv', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('barbers').select('*')
+        .eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome_exibicao');
+      return data ?? [];
+    },
+  });
 
   // services & products
   const { data: services } = useQuery({
@@ -82,7 +98,8 @@ export default function PDV() {
     setCart(prev => {
       const ex = prev.find(i => i.id === p.id && i.tipo === 'produto');
       if (ex) return prev.map(i => i.id === p.id && i.tipo === 'produto' ? { ...i, qtd: i.qtd + 1 } : i);
-      return [...prev, { id: p.id, tipo: 'produto', nome: p.nome, preco: Number(p.preco), qtd: 1, estoque: p.estoque, comissao_percentual: p.comissao_percentual }];
+      // Produto nunca ganha comissão, então comissao_percentual fica 0 ou undefined
+      return [...prev, { id: p.id, tipo: 'produto', nome: p.nome, preco: Number(p.preco), qtd: 1, estoque: p.estoque, comissao_percentual: 0 }];
     });
   };
 
@@ -101,7 +118,7 @@ export default function PDV() {
 
   const resetAll = () => {
     setStep('idle');
-    setSelectedClient(null);
+    setVendaState({ client: null, barberId: null });
     setCart([]);
     setDesconto(0);
     setSvcSearch('');
@@ -110,29 +127,78 @@ export default function PDV() {
 
   /* Finalize sale */
   const finalize = async (forma: PayForma, subForma?: 'credito' | 'debito', pagoValor?: number) => {
-    if (!barbershop || !member) return;
-    const formaFinal = subForma ?? forma; // use subForma when cartao
+    if (!barbershop || !member || !vendaState.barberId) return;
+    const formaFinal = subForma ?? forma;
 
-    // Check open cash session
     if (!cashSession) {
       toast.error('Abra o caixa antes de registrar uma venda');
       return;
     }
 
-    // Deduct stock for products
-    for (const item of cart.filter(i => i.tipo === 'produto')) {
-      const { error } = await supabase.from('products')
-        .update({ estoque: (products?.find(p => p.id === item.id)?.estoque ?? 0) - item.qtd })
-        .eq('id', item.id);
-      if (error) return toast.error(`Erro ao dar baixa no estoque: ${error.message}`);
-      await supabase.from('stock_movements').insert({
-        product_id: item.id, tipo: 'saida', qtd: item.qtd, motivo: 'Venda PDV',
-      });
+    // Record order first to link items and commission
+    const { data: order, error: orderErr } = await supabase.from('orders').insert({
+      barbershop_id: barbershop.id,
+      client_id: vendaState.client?.id,
+      barber_id: vendaState.barberId,
+      total: total,
+      desconto: desconto,
+      forma_pagamento: formaFinal,
+      status: 'fechada',
+      fechada_em: new Date().toISOString(),
+    }).select('id').single();
+
+    if (orderErr) return toast.error(orderErr.message);
+
+    // Save items and handle stock/commission
+    for (const item of cart) {
+      let comissao_v = 0;
+      
+      if (item.tipo === 'servico') {
+        // Buscar comissão do barbeiro para este serviço ou a padrão
+        const { data: b } = await supabase.from('barbers').select('comissao_padrao').eq('id', vendaState.barberId).single();
+        const perc = b?.comissao_padrao ?? 50;
+        comissao_v = (item.preco * item.qtd * perc) / 100;
+        
+        await supabase.from('order_items').insert({
+          order_id: order.id,
+          tipo: 'servico',
+          ref_id: item.id,
+          descricao: item.nome,
+          qtd: item.qtd,
+          valor_unit: item.preco,
+          valor_total: item.preco * item.qtd,
+          comissao_percentual: perc,
+          comissao_valor: comissao_v
+        });
+      } else {
+        // Produto: sem comissão conforme regra do usuário
+        await supabase.from('order_items').insert({
+          order_id: order.id,
+          tipo: 'produto',
+          ref_id: item.id,
+          descricao: item.nome,
+          qtd: item.qtd,
+          valor_unit: item.preco,
+          valor_total: item.preco * item.qtd,
+          comissao_percentual: 0,
+          comissao_valor: 0
+        });
+
+        // Deduct stock
+        const { error: stErr } = await supabase.from('products')
+          .update({ estoque: (products?.find(p => p.id === item.id)?.estoque ?? 0) - item.qtd })
+          .eq('id', item.id);
+        if (stErr) toast.error(`Erro estoque: ${stErr.message}`);
+        
+        await supabase.from('stock_movements').insert({
+          product_id: item.id, tipo: 'saida', qtd: item.qtd, motivo: 'Venda PDV', ref_order_id: order.id
+        });
+      }
     }
 
     // Record cash movement
-    const descricao = selectedClient
-      ? `Venda PDV — ${selectedClient.nome}`
+    const desc = vendaState.client
+      ? `Venda PDV — ${vendaState.client.nome}`
       : 'Venda PDV — balcão';
 
     const { error: mvErr } = await supabase.from('cash_movements').insert({
@@ -140,10 +206,11 @@ export default function PDV() {
       cash_session_id: cashSession.id,
       tipo: 'entrada',
       categoria: 'venda',
-      descricao,
+      descricao: desc,
       valor: total,
       forma_pagamento: formaFinal,
       responsavel_id: member.id,
+      ref_order_id: order.id,
       data: new Date().toISOString(),
     });
     if (mvErr) return toast.error(mvErr.message);
@@ -153,7 +220,7 @@ export default function PDV() {
     refetchProducts();
 
     toast.success(`Venda de ${formatBRL(total)} registrada`);
-    setDoneInfo({ total, telefone: selectedClient?.telefone ?? '' });
+    setDoneInfo({ total, telefone: vendaState.client?.telefone ?? '' });
     setStep('done');
   };
 
@@ -205,12 +272,32 @@ export default function PDV() {
   /* ── CLIENT PICKER ────────────────────────────────────────────── */
   if (step === 'client') return (
     <div className="p-8 max-w-2xl mx-auto">
-      <StepHeader step={1} total={3} title="Identificar cliente" onCancel={() => setCancelModal(true)} />
+      <StepHeader step={1} total={4} title="Identificar cliente" onCancel={() => setCancelModal(true)} />
       <ClientPicker
         barbershopId={barbershop?.id ?? ''}
-        onSelect={c => { setSelectedClient(c); setStep('venda'); }}
-        onSkip={() => { setSelectedClient(null); setStep('venda'); }}
+        onSelect={c => { setVendaState({ ...vendaState, client: c }); setStep('barber'); }}
+        onSkip={() => { setVendaState({ ...vendaState, client: null }); setStep('barber'); }}
       />
+      <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
+    </div>
+  );
+
+  /* ── BARBER PICKER ────────────────────────────────────────────── */
+  if (step === 'barber') return (
+    <div className="p-8 max-w-2xl mx-auto">
+      <StepHeader step={2} total={4} title="Quem realizou o atendimento?" onCancel={() => setCancelModal(true)} />
+      <div className="grid grid-cols-2 gap-3 max-w-md">
+        {(barbers ?? []).map(b => (
+          <button key={b.id} onClick={() => { setVendaState({ ...vendaState, barberId: b.id }); setStep('venda'); }}
+            className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-ink-800 hover:bg-ink-800/50 transition-all">
+            <div className="w-12 h-12 rounded-full bg-ink-700 flex items-center justify-center text-lg font-bold">
+              {b.nome_exibicao.charAt(0)}
+            </div>
+            <span className="font-medium">{b.nome_exibicao}</span>
+          </button>
+        ))}
+      </div>
+      <button className="btn-ghost mt-6" onClick={() => setStep('client')}>Voltar</button>
       <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
     </div>
   );
@@ -219,12 +306,19 @@ export default function PDV() {
   if (step === 'venda') {
     const filtSvc  = (services ?? []).filter(s => s.nome.toLowerCase().includes(svcSearch.toLowerCase()));
     const filtProd = (products ?? []).filter(p => p.nome.toLowerCase().includes(prodSearch.toLowerCase()));
+    const currentBarber = barbers?.find(b => b.id === vendaState.barberId);
 
     return (
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
-        <StepHeader step={2} total={3}
-          title={selectedClient ? `Venda — ${selectedClient.nome}` : 'Venda — balcão'}
+        <StepHeader step={3} total={4}
+          title={vendaState.client ? `Venda — ${vendaState.client.nome}` : 'Venda — balcão'}
           onCancel={() => setCancelModal(true)} />
+        
+        <div className="flex items-center gap-2 mb-6 px-4 py-2 bg-ink-900/50 rounded-lg border border-ink-800 w-fit">
+          <User size={14} className="text-ink-500" />
+          <span className="text-xs text-ink-300">Atendimento por: <span className="text-ink-50 font-medium">{currentBarber?.nome_exibicao}</span></span>
+          <button onClick={() => setStep('barber')} className="text-[10px] text-ink-500 hover:text-ink-300 underline ml-2">trocar</button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Catalog */}

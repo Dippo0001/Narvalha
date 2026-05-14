@@ -17,26 +17,10 @@ type Tab = 'estoque' | 'pdv';
 interface CartItem { product: Product; qtd: number }
 
 export default function Products() {
-  const [tab, setTab] = useState<Tab>('estoque');
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <PageHeader title="Produtos" />
-      <div className="flex gap-1 border-b mb-6" style={{ borderColor: 'var(--border)' }}>
-        {([
-          { key: 'estoque', label: 'Estoque' },
-          { key: 'pdv', label: 'PDV — Venda Avulsa' },
-        ] as { key: Tab; label: string }[]).map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm -mb-px border-b-2 transition-colors
-              ${tab === key ? 'border-current font-medium' : 'border-transparent text-muted hover:text-current'}`}
-            style={tab === key ? { borderColor: 'var(--text)' } : {}}>
-            {key === 'pdv' && <ShoppingCart size={14} />}
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === 'estoque' && <EstoqueTab />}
-      {tab === 'pdv' && <PDVTab />}
+      <PageHeader title="Produtos" subtitle="Gestão de estoque e catálogo" />
+      <EstoqueTab />
     </div>
   );
 }

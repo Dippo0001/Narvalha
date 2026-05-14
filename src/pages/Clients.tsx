@@ -156,6 +156,7 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
   const [obs, setObs] = useState(initial?.observacoes ?? '');
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '));
   const [lembreteDias, setLembreteDias] = useState(initial?.lembrete_dias ?? 30);
+  const [marketingConsent, setMarketingConsent] = useState(!!(initial as any)?.marketing_consent);
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave({ 
@@ -164,7 +165,9 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
       email, 
       observacoes: obs, 
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      lembrete_dias: lembreteDias 
+      lembrete_dias: lembreteDias,
+      marketing_consent: marketingConsent,
+      lgpd_consent_at: marketingConsent ? new Date().toISOString() : null
     }); }}
       className="space-y-4">
       <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus /></div>
@@ -184,6 +187,22 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
       <div><label className="label">E-mail</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div><label className="label">Tags (separadas por vírgula)</label><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="vip, aniversariante" /></div>
       <div><label className="label">Observações</label><textarea className="input" rows={3} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
+      
+      <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-bg-hover/30 cursor-pointer group transition-colors hover:bg-bg-hover/50">
+        <input 
+          type="checkbox" 
+          checked={marketingConsent} 
+          onChange={(e) => setMarketingConsent(e.target.checked)}
+          className="rounded border-ink-800 text-ink-500 focus:ring-offset-ink-950 focus:ring-ink-500"
+        />
+        <div className="flex-1">
+          <div className="text-sm font-medium group-hover:text-ink-50 transition-colors">Consentimento de Marketing</div>
+          <p className="text-[10px] text-ink-500 leading-tight">
+            O cliente autoriza o recebimento de lembretes e promoções via WhatsApp/SMS conforme a LGPD.
+          </p>
+        </div>
+      </label>
+
       <button className="btn-primary w-full">Salvar</button>
     </form>
   );

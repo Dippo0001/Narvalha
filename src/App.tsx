@@ -22,6 +22,8 @@ import CaixaHistorico from './pages/CaixaHistorico';
 import PublicBooking from './pages/PublicBooking';
 import SubscriptionBlocked from './pages/SubscriptionBlocked';
 import SaaSAdmin from './pages/SaaSAdmin';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import CookieBanner from './components/CookieBanner';
 
 function AppRoutes() {
   const { session, loading, member, barbershop, isAdmin } = useAuth();
@@ -38,6 +40,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/b/:slug" element={<PublicBooking />} />
+        <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
@@ -99,7 +102,12 @@ function AppRoutes() {
 }
 
 function App() {
-  return <AppRoutes />;
+  return (
+    <>
+      <AppRoutes />
+      <CookieBanner />
+    </>
+  );
 }
 
 export default App;

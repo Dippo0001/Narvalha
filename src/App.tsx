@@ -60,7 +60,7 @@ function AppRoutes() {
     (barbershop?.subscription_status === 'trialing' && new Date(barbershop.trial_ends_at) > new Date()) ||
     (barbershop?.paid_until && new Date(barbershop.paid_until) > new Date());
 
-  if (!isSubscriptionActive) {
+  if (!isSubscriptionActive && !isAdmin) {
     return (
       <Routes>
         <Route path="/assinatura-bloqueada" element={<SubscriptionBlocked />} />

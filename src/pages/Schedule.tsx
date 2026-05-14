@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { addDays, addMinutes, format, startOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import type { Appointment, Barber, Client, Service } from '../types/db';
@@ -32,6 +32,13 @@ export default function Schedule() {
   const [barberFilter, setBarberFilter] = useState<string>('all');
   const [slotModal, setSlotModal] = useState<{ barber_id: string; time: Date } | null>(null);
   const [apptModal, setApptModal] = useState<Appointment | null>(null);
+
+  const copyPublicLink = () => {
+    if (!barbershop) return;
+    const url = `${window.location.origin}/b/${barbershop.slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link de agendamento copiado para o WhatsApp!');
+  };
 
   const { data: barbers } = useQuery({
     queryKey: ['barbers-list', barbershop?.id],
@@ -115,6 +122,10 @@ export default function Schedule() {
       <PageHeader title="Agenda" subtitle={format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
         actions={
           <div className="flex flex-wrap gap-2 items-center">
+            <button className="btn-outline btn-sm gap-2" onClick={copyPublicLink}>
+              <Share2 size={16} /> Compartilhar Link
+            </button>
+            <div className="h-6 w-px bg-ink-800 mx-1" />
             <button className="btn-primary btn-sm gap-1" onClick={() => setSlotModal({ barber_id: barbers?.[0]?.id ?? '', time: new Date() })}>
               <Plus size={16} /> Novo Agendamento
             </button>

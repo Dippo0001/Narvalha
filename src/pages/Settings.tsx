@@ -19,6 +19,7 @@ export default function Settings() {
   const [slug, setSlug] = useState(barbershop?.slug ?? '');
   const [cancel, setCancel] = useState(barbershop?.cancel_min_hours ?? 2);
   const [numCadeiras, setNumCadeiras] = useState(barbershop?.num_cadeiras ?? 1);
+  const [caixaAsCegas, setCaixaAsCegas] = useState(barbershop?.caixa_as_cegas ?? false);
 
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +32,8 @@ export default function Settings() {
     const { error } = await supabase.from('barbershops').update({ 
       nome, telefone: telefone.replace(/\D/g, ''), endereco, slug, 
       cancel_min_hours: cancel,
-      num_cadeiras: numCadeiras
+      num_cadeiras: numCadeiras,
+      caixa_as_cegas: caixaAsCegas
     }).eq('id', barbershop.id);
     if (error) return toast.error(error.message);
     toast.success('Salvo');
@@ -69,6 +71,20 @@ export default function Settings() {
             <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
           </div>
           <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
+          
+          <div className="pt-4 border-t border-ink-800">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="relative inline-flex items-center">
+                <input type="checkbox" checked={caixaAsCegas} onChange={(e) => setCaixaAsCegas(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-ink-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-ink-400 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:bg-ink-50 peer-checked:bg-emerald-600"></div>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-ink-50 group-hover:text-white transition-colors">Caixa às Cegas</span>
+                <p className="text-[10px] text-ink-500">Esconde os valores esperados durante o fechamento para uma conferência neutra.</p>
+              </div>
+            </label>
+          </div>
+
           <button className="btn-primary">Salvar</button>
         </form>
       )}

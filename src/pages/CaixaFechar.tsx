@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function CaixaFechar() {
-  const { member } = useAuth();
+  const { barbershop, member } = useAuth();
   const { session, summary, refresh } = useCash();
   const nav = useNavigate();
 
@@ -22,6 +22,8 @@ export default function CaixaFechar() {
   const [obs, setObs] = useState('');
   const [confirmado, setConfirmado] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const isBlind = barbershop?.caixa_as_cegas ?? false;
 
   const { data: movements } = useQuery({
     queryKey: ['cash-movements-close', session?.id],
@@ -85,62 +87,66 @@ export default function CaixaFechar() {
         </p>
       </div>
 
-      {/* Resumo do dia */}
-      <div className="card p-5 space-y-3">
-        <div className="text-sm font-medium text-muted uppercase tracking-wide">Resumo do dia</div>
-        <div className="grid grid-cols-2 gap-3">
-          <StatRow icon={TrendingUp}   label="Total vendas"         value={formatBRL(summary?.total_entradas ?? 0)} color="text-emerald-400" />
-          <StatRow icon={Receipt}      label="Atendimentos"         value={String(summary?.total_atendimentos ?? 0)} />
-          <StatRow icon={TrendingDown} label="Sangrias"             value={formatBRL(summary?.total_sangrias ?? 0)} color="text-red-400" />
-          <StatRow icon={TrendingUp}   label="Suprimentos"          value={formatBRL(summary?.total_suprimentos ?? 0)} color="text-sky-400" />
-        </div>
-      </div>
+      {!isBlind && (
+        <>
+          {/* Resumo do dia */}
+          <div className="card p-5 space-y-3">
+            <div className="text-sm font-medium text-muted uppercase tracking-wide">Resumo do dia</div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatRow icon={TrendingUp}   label="Total vendas"         value={formatBRL(summary?.total_entradas ?? 0)} color="text-emerald-400" />
+              <StatRow icon={Receipt}      label="Atendimentos"         value={String(summary?.total_atendimentos ?? 0)} />
+              <StatRow icon={TrendingDown} label="Sangrias"             value={formatBRL(summary?.total_sangrias ?? 0)} color="text-red-400" />
+              <StatRow icon={TrendingUp}   label="Suprimentos"          value={formatBRL(summary?.total_suprimentos ?? 0)} color="text-sky-400" />
+            </div>
+          </div>
 
-      {/* Formas de pagamento */}
-      <div className="card p-5">
-        <div className="text-sm font-medium text-muted uppercase tracking-wide mb-4">Formas recebidas</div>
-        <div className="space-y-2">
-          {[
-            { label: 'Dinheiro', forma: 'dinheiro', icon: Banknote },
-            { label: 'PIX',      forma: 'pix',      icon: Smartphone },
-            { label: 'Débito',   forma: 'debito',   icon: CreditCard },
-            { label: 'Crédito',  forma: 'credito',  icon: CreditCard },
-          ].map(({ label, forma, icon: Icon }) => {
-            const val = byForma(forma);
-            const cnt = countForma(forma);
-            if (val === 0) return null;
-            return (
-              <div key={forma} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-2 text-sm">
-                  <Icon size={14} className="text-muted" />
-                  <span>{label}</span>
-                  <span className="text-muted text-xs">({cnt} venda{cnt !== 1 ? 's' : ''})</span>
-                </div>
-                <span className="font-medium text-emerald-400">{formatBRL(val)}</span>
+          {/* Formas de pagamento */}
+          <div className="card p-5">
+            <div className="text-sm font-medium text-muted uppercase tracking-wide mb-4">Formas recebidas</div>
+            <div className="space-y-2">
+              {[
+                { label: 'Dinheiro', forma: 'dinheiro', icon: Banknote },
+                { label: 'PIX',      forma: 'pix',      icon: Smartphone },
+                { label: 'Débito',   forma: 'debito',   icon: CreditCard },
+                { label: 'Crédito',  forma: 'credito',  icon: CreditCard },
+              ].map(({ label, forma, icon: Icon }) => {
+                const val = byForma(forma);
+                const cnt = countForma(forma);
+                if (val === 0) return null;
+                return (
+                  <div key={forma} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Icon size={14} className="text-muted" />
+                      <span>{label}</span>
+                      <span className="text-muted text-xs">({cnt} venda{cnt !== 1 ? 's' : ''})</span>
+                    </div>
+                    <span className="font-medium text-emerald-400">{formatBRL(val)}</span>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between font-semibold pt-2">
+                <span>Total</span>
+                <span>{formatBRL(summary?.total_entradas ?? 0)}</span>
               </div>
-            );
-          })}
-          <div className="flex justify-between font-semibold pt-2">
-            <span>Total</span>
-            <span>{formatBRL(summary?.total_entradas ?? 0)}</span>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Saldo esperado */}
-      <div className="card p-5 space-y-3">
-        <div className="text-sm font-medium text-muted uppercase tracking-wide">Cálculo do saldo esperado</div>
-        <div className="space-y-1.5 text-sm font-mono">
-          <CalcRow label="Saldo inicial"       sign="+"  value={session.saldo_inicial} />
-          <CalcRow label="Entradas (dinheiro)" sign="+"  value={summary?.total_dinheiro ?? 0} />
-          <CalcRow label="Suprimentos"         sign="+"  value={summary?.total_suprimentos ?? 0} />
-          <CalcRow label="Sangrias"            sign="−"  value={summary?.total_sangrias ?? 0} color="text-red-400" />
-          <div className="border-t pt-2 flex justify-between font-semibold" style={{ borderColor: 'var(--border)' }}>
-            <span>Saldo esperado</span>
-            <span>{formatBRL(saldoEsperado)}</span>
+          {/* Saldo esperado */}
+          <div className="card p-5 space-y-3">
+            <div className="text-sm font-medium text-muted uppercase tracking-wide">Cálculo do saldo esperado</div>
+            <div className="space-y-1.5 text-sm font-mono">
+              <CalcRow label="Saldo inicial"       sign="+"  value={session.saldo_inicial} />
+              <CalcRow label="Entradas (dinheiro)" sign="+"  value={summary?.total_dinheiro ?? 0} />
+              <CalcRow label="Suprimentos"         sign="+"  value={summary?.total_suprimentos ?? 0} />
+              <CalcRow label="Sangrias"            sign="−"  value={summary?.total_sangrias ?? 0} color="text-red-400" />
+              <div className="border-t pt-2 flex justify-between font-semibold" style={{ borderColor: 'var(--border)' }}>
+                <span>Saldo esperado</span>
+                <span>{formatBRL(saldoEsperado)}</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Contagem real */}
       <form onSubmit={close} className="card p-5 space-y-5">
@@ -151,7 +157,7 @@ export default function CaixaFechar() {
             value={saldoFinal || ''} onChange={e => setSaldoFinal(+e.target.value)} required autoFocus />
         </div>
 
-        {saldoFinal > 0 && (
+        {saldoFinal > 0 && !isBlind && (
           <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: diffStatus.bg }}>
             <diffStatus.icon size={18} className={diffStatus.color} />
             <div>
@@ -162,6 +168,18 @@ export default function CaixaFechar() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {isBlind && (
+          <div className="p-4 bg-ink-900/50 border border-ink-800 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-500 mb-1">
+              <AlertTriangle size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">Modo às Cegas</span>
+            </div>
+            <p className="text-[11px] text-ink-400">
+              O sistema não mostrará os valores esperados. A conferência será realizada após o fechamento pelo gestor.
+            </p>
           </div>
         )}
 

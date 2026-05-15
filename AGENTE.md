@@ -27,6 +27,8 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 - **Regra de Comissões**: Barbeiros ganham comissão automática apenas em **Serviços**. Produtos agora têm comissão zerada por padrão no PDV.
 - **Sistema de Fidelidade**: Implementado contador de serviços (10º corte gratuito) com lógica centralizada no RPC `close_order`. Visualização do progresso em Clientes, POS e PDV.
 - **Refatoração PDV**: Vendas avulsas agora utilizam o mesmo fluxo de fechamento (`close_order`) das comandas da agenda, garantindo integridade de estoque, caixa e fidelidade.
+- **Controle de Despesas**: Aba financeira completa com contas a pagar/receber, categorias de gastos (aluguel, luz, etc.) e gestão de recorrência.
+- **Caixa às Cegas**: Nova configuração que permite esconder valores esperados no fechamento de caixa, forçando uma contagem física neutra para evitar furos e manipulações.
 
 ### 👥 Gestão de Clientes e LGPD
 - **LGPD Compliance**: Implementada política de privacidade, aceite de termos no signup, consentimento de marketing e logs de transparência.
@@ -53,7 +55,7 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 ### 📈 Funcionalidades de Negócio
 - [ ] **Dashboard Estatístico**: Gráficos de faturamento diário, semanal e mensal.
 - [x] **Sistema de Fidelidade**: Contador de serviços para dar "o 10º corte gratuito".
-- [ ] **Controle de Despesas**: Aba para cadastrar gastos fixos (aluguel, luz) e variáveis.
+- [x] **Controle de Despesas**: Aba para cadastrar gastos fixos (aluguel, luz) e variáveis.
 - [ ] **App PWA**: Configurar para que o dono da barbearia possa "instalar" o site como um app no celular.
 - [ ] **Integração de Fotos**: Upload de fotos de "Antes e Depois" vinculadas ao cliente.
 

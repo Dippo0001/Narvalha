@@ -20,6 +20,7 @@ export interface Barbershop {
   trial_ends_at: string;
   paid_until: string | null;
   fidelidade_meta: number;
+  caixa_as_cegas: boolean;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {

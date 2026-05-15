@@ -38,9 +38,9 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 ### 🚀 Roadmap SaaS (TO-DO)
 - [x] **Controle de Acesso por Assinatura**: Bloquear acesso total ao sistema caso a mensalidade não esteja paga. (Implementado via RLS e Frontend redirect)
 - [x] **Dashboard de Administração SaaS**: Tela para você (dono do Narvalha) gerenciar todos os clientes, pagamentos e bloqueios.
+- [x] **Portal de Pagamento (Checkout)**: Criar tela de pagamento (Stripe) exclusiva para o dono da barbearia assinar o Narvalha. (Implementado via Stripe Checkout e Edge Functions)
 - [ ] **Isolamento de Dados (Multi-tenancy)**: Garantir via RLS (Row Level Security) do Supabase que nenhuma informação seja misturada entre barbearias.
 - [ ] **Sistema de Subdomínios**: Implementar lógica para que cada barbearia tenha seu link único (ex: `barbearia-do-ze.narvalha.com.br`).
-- [ ] **Portal de Pagamento (Checkout)**: Criar tela de pagamento (Stripe/Mercado Pago) exclusiva para o dono da barbearia assinar o Narvalha.
 
 ### 📈 Funcionalidades de Negócio
 - [ ] **Dashboard Estatístico**: Gráficos de faturamento diário, semanal e mensal.

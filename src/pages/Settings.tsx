@@ -67,9 +67,9 @@ export default function Settings() {
 import { CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
 
 const PLANS = [
-  { id: 'silver',   name: 'Prata',   price: 'R$ 49,90', features: ['Até 2 barbeiros', 'Gestão básica', 'Suporte e-mail'], color: 'text-slate-400' },
-  { id: 'gold',     name: 'Ouro',    price: 'R$ 89,90', features: ['Até 5 barbeiros', 'Financeiro completo', 'Suporte WhatsApp'], color: 'text-amber-400', popular: true },
-  { id: 'platinum', name: 'Platina', price: 'R$ 149,90', features: ['Barbeiros ilimitados', 'Dashboard Admin', 'Gerente de conta'], color: 'text-cyan-400' },
+  { id: 'silver',   name: 'Prata',   price: 'R$ 29,90', features: ['Até 2 barbeiros', 'Gestão básica', 'Suporte e-mail'], color: 'text-slate-400' },
+  { id: 'gold',     name: 'Ouro',    price: 'R$ 49,90', features: ['Até 5 barbeiros', 'Financeiro completo', 'Suporte WhatsApp'], color: 'text-amber-400', popular: true },
+  { id: 'platinum', name: 'Platina', price: 'R$ 59,90', features: ['Barbeiros ilimitados', 'Dashboard Admin', 'Gerente de conta'], color: 'text-cyan-400' },
 ];
 
 function SubscriptionTab() {

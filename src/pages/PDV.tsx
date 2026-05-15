@@ -471,6 +471,8 @@ export default function PDV() {
   return null;
 }
 
+import { maskPhone, isValidPhone } from '../lib/utils';
+
 /* ─── ClientPicker ───────────────────────────────────────────────── */
 function ClientPicker({ barbershopId, onSelect, onSkip }: {
   barbershopId: string; onSelect: (c: Client) => void; onSkip: () => void;
@@ -495,11 +497,14 @@ function ClientPicker({ barbershopId, onSelect, onSkip }: {
 
   const createClient = async () => {
     if (!newName.trim()) return;
+    if (!isValidPhone(newTel)) {
+      return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+    }
     setSaving(true);
     const { data, error } = await supabase.from('clients').insert({
       barbershop_id: barbershopId,
       nome: newName.trim(),
-      telefone: newTel.trim(),
+      telefone: newTel.replace(/\D/g, ''),
     }).select().single();
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -518,8 +523,13 @@ function ClientPicker({ barbershopId, onSelect, onSkip }: {
         <input className="input" value={newName} onChange={e => setNewName(e.target.value)} autoFocus placeholder="Nome completo" />
       </div>
       <div>
-        <label className="label">Telefone (WhatsApp)</label>
-        <input className="input" value={newTel} onChange={e => setNewTel(e.target.value)} placeholder="(85) 99999-9999" />
+        <label className="label">Telefone (Celular) *</label>
+        <input 
+          className="input" 
+          value={newTel} 
+          onChange={e => setNewTel(maskPhone(e.target.value))} 
+          placeholder="(85) 99999-9999" 
+        />
       </div>
       <div className="flex gap-3 pt-1">
         <button className="btn-outline flex-1" onClick={() => setCreateMode(false)}>Voltar</button>

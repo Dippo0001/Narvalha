@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
-import { Plus } from 'lucide-react';
+import { Plus, CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { maskPhone, isValidPhone } from '../lib/utils';
 import type { Barber } from '../types/db';
 
 export default function Settings() {
@@ -13,7 +14,7 @@ export default function Settings() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'geral' | 'equipe' | 'plano'>('geral');
   const [nome, setNome] = useState(barbershop?.nome ?? '');
-  const [telefone, setTelefone] = useState(barbershop?.telefone ?? '');
+  const [telefone, setTelefone] = useState(maskPhone(barbershop?.telefone ?? ''));
   const [endereco, setEndereco] = useState(barbershop?.endereco ?? '');
   const [slug, setSlug] = useState(barbershop?.slug ?? '');
   const [cancel, setCancel] = useState(barbershop?.cancel_min_hours ?? 2);
@@ -22,8 +23,13 @@ export default function Settings() {
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barbershop) return;
+    
+    if (!isValidPhone(telefone)) {
+      return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+    }
+
     const { error } = await supabase.from('barbershops').update({ 
-      nome, telefone, endereco, slug, 
+      nome, telefone: telefone.replace(/\D/g, ''), endereco, slug, 
       cancel_min_hours: cancel,
       num_cadeiras: numCadeiras
     }).eq('id', barbershop.id);
@@ -47,7 +53,15 @@ export default function Settings() {
         <form onSubmit={saveShop} className="card p-6 space-y-4 max-w-xl">
           <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
           <div><label className="label">Slug</label><input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} /></div>
-          <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
+          <div>
+            <label className="label">Telefone (Celular)</label>
+            <input 
+              className="input" 
+              value={telefone} 
+              onChange={(e) => setTelefone(maskPhone(e.target.value))} 
+              placeholder="(85) 98888-8888"
+            />
+          </div>
           <div><label className="label">Endereço</label><input className="input" value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
           <div>
             <label className="label">Número de Cadeiras (Capacidade simultânea)</label>

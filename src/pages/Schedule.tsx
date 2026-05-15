@@ -9,6 +9,7 @@ import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { formatBRL, maskPhone, isValidPhone } from '../lib/utils';
 import type { Appointment, Barber, Client, Service } from '../types/db';
 
 const SLOT_MIN = 15;
@@ -280,8 +281,13 @@ function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date 
     let cid = clientId;
     if (!cid) {
       if (!newClientName || !newClientPhone) return toast.error('Cliente é obrigatório');
+      
+      if (!isValidPhone(newClientPhone)) {
+        return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+      }
+
       const { data: c, error } = await supabase.from('clients').insert({
-        barbershop_id: barbershop.id, nome: newClientName, telefone: newClientPhone,
+        barbershop_id: barbershop.id, nome: newClientName, telefone: newClientPhone.replace(/\D/g, ''),
       }).select('id').single();
       if (error) return toast.error(error.message);
       cid = c.id;
@@ -332,7 +338,12 @@ function NewApptForm({ slot, onClose }: { slot: { barber_id: string; time: Date 
             <p className="text-xs text-ink-500 mb-2">Ou cadastre rapidamente:</p>
             <div className="grid grid-cols-2 gap-2">
               <input className="input" placeholder="Nome" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
-              <input className="input" placeholder="Telefone" value={newClientPhone} onChange={(e) => setNewClientPhone(e.target.value)} />
+              <input 
+                className="input" 
+                placeholder="Telefone" 
+                value={newClientPhone} 
+                onChange={(e) => setNewClientPhone(maskPhone(e.target.value))} 
+              />
             </div>
           </>
         ) : (

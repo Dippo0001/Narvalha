@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
-import { slugify } from '../lib/utils';
+import { slugify, maskPhone, isValidPhone } from '../lib/utils';
 import { toast } from 'sonner';
 
 export default function Onboarding() {
@@ -25,10 +25,13 @@ export default function Onboarding() {
 
   const createShop = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidPhone(telefone)) {
+      return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+    }
     setLoading(true);
     const finalSlug = slug || slugify(nome);
     const { data, error } = await supabase.rpc('create_barbershop', {
-      p_nome: nome, p_slug: finalSlug, p_telefone: telefone,
+      p_nome: nome, p_slug: finalSlug, p_telefone: telefone.replace(/\D/g, ''),
     });
     setLoading(false);
     if (error) return toast.error(error.message);
@@ -76,7 +79,12 @@ export default function Onboarding() {
               <input className="input" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
               <p className="text-xs text-ink-500 mt-1">navalha.app/b/{slug || 'sua-barbearia'}</p></div>
             <div><label className="label">Telefone</label>
-              <input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="85999999999" /></div>
+              <input 
+                className="input" 
+                value={telefone} 
+                onChange={(e) => setTelefone(maskPhone(e.target.value))} 
+                placeholder="(85) 98888-8888" 
+              /></div>
             <button className="btn-primary w-full" disabled={loading}>Continuar</button>
           </form>
         )}

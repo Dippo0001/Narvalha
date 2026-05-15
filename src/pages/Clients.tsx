@@ -149,30 +149,49 @@ function ClientsTab() {
   );
 }
 
+import { formatBRL, maskPhone, isValidPhone } from '../lib/utils';
+
 function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: any) => void }) {
   const [nome, setNome] = useState(initial?.nome ?? '');
-  const [telefone, setTelefone] = useState(initial?.telefone ?? '');
+  const [telefone, setTelefone] = useState(maskPhone(initial?.telefone ?? ''));
   const [email, setEmail] = useState(initial?.email ?? '');
   const [obs, setObs] = useState(initial?.observacoes ?? '');
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '));
   const [lembreteDias, setLembreteDias] = useState(initial?.lembrete_dias ?? 30);
   const [marketingConsent, setMarketingConsent] = useState(!!(initial as any)?.marketing_consent);
 
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidPhone(telefone)) {
+      return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+    }
+    onSave({ 
       nome, 
-      telefone, 
+      telefone: telefone.replace(/\D/g, ''), 
       email, 
       observacoes: obs, 
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       lembrete_dias: lembreteDias,
       marketing_consent: marketingConsent,
       lgpd_consent_at: marketingConsent ? new Date().toISOString() : null
-    }); }}
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}
       className="space-y-4">
       <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus /></div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={(e) => setTelefone(e.target.value)} required /></div>
+        <div>
+          <label className="label">Telefone (Celular)</label>
+          <input 
+            className="input" 
+            value={telefone} 
+            onChange={(e) => setTelefone(maskPhone(e.target.value))} 
+            placeholder="(85) 98888-8888"
+            required 
+          />
+        </div>
         <div>
           <label className="label">Ciclo de Retorno (Dias)</label>
           <select className="input" value={lembreteDias} onChange={(e) => setLembreteDias(+e.target.value)}>

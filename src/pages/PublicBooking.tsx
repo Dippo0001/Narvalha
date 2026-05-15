@@ -6,6 +6,7 @@ import { format, addDays, startOfDay, addMinutes, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { maskPhone, isValidPhone } from '../lib/utils';
 import type { Service, Barber } from '../types/db';
 
 export default function PublicBooking() {
@@ -112,13 +113,18 @@ export default function PublicBooking() {
 
   const submit = async () => {
     if (!shop || !time || !nome || !telefone) return;
+    if (!isValidPhone(telefone)) {
+      return toast.error('O telefone deve ter exatamente 11 dígitos: (DD) 9 XXXX-XXXX');
+    }
+
+    const cleanTel = telefone.replace(/\D/g, '');
     const chosenSlot = availableSlots.find(s => s.time.getTime() === time.getTime());
     if (!chosenSlot) return toast.error('Horário indisponível');
     // client upsert via phone
-    const { data: existing } = await supabase.from('clients').select('id').eq('barbershop_id', shop.id).eq('telefone', telefone).maybeSingle();
+    const { data: existing } = await supabase.from('clients').select('id').eq('barbershop_id', shop.id).eq('telefone', cleanTel).maybeSingle();
     let cid = existing?.id;
     if (!cid) {
-      const { data: c, error } = await supabase.from('clients').insert({ barbershop_id: shop.id, nome, telefone }).select('id').single();
+      const { data: c, error } = await supabase.from('clients').insert({ barbershop_id: shop.id, nome, telefone: cleanTel }).select('id').single();
       if (error) return toast.error(error.message);
       cid = c.id;
     }
@@ -252,7 +258,7 @@ export default function PublicBooking() {
             <h3 className="text-lg text-ink-50 mb-4">Seus dados</h3>
             <div className="space-y-3 mb-6">
               <div><label className="label">Nome</label><input className="input" value={nome} onChange={e => setNome(e.target.value)} autoFocus /></div>
-              <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={e => setTelefone(e.target.value)} /></div>
+              <div><label className="label">Telefone</label><input className="input" value={telefone} onChange={e => setTelefone(maskPhone(e.target.value))} placeholder="(85) 98888-8888" /></div>
             </div>
             <div className="card bg-ink-900 p-4 mb-6 text-sm">
               <div className="text-ink-400">Resumo</div>

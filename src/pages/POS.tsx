@@ -9,7 +9,7 @@ import { formatBRL } from '../lib/utils';
 import { toast } from 'sonner';
 import {
   Trash2, Search, X, Check, Copy, MessageCircle,
-  Scissors, Package, Banknote, Smartphone, CreditCard, Shuffle, AlertTriangle,
+  Scissors, Package, Banknote, Smartphone, CreditCard, Shuffle, AlertTriangle, Star,
 } from 'lucide-react';
 import type { OrderItem, Service, Product } from '../types/db';
 
@@ -233,8 +233,21 @@ export default function POS() {
                 style={{ background: 'var(--bg-hover)' }}>
                 {order.clients.nome.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <div className="font-medium">{order.clients.nome}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium truncate">{order.clients.nome}</span>
+                  {(() => {
+                    const meta = barbershop?.fidelidade_meta ?? 10;
+                    const count = order.clients.fidelidade_contagem ?? 0;
+                    const isProximoGratis = count >= (meta - 1);
+                    return (
+                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${isProximoGratis ? 'bg-emerald-400/20 text-emerald-400 ring-1 ring-emerald-400/30 animate-pulse' : 'bg-ink-800 text-ink-400'}`}>
+                        <Star size={7} fill={isProximoGratis ? 'currentColor' : 'none'} />
+                        {isProximoGratis ? 'GRÁTIS' : `${count}/${meta}`}
+                      </div>
+                    );
+                  })()}
+                </div>
                 <div className="text-xs text-muted">{order.clients.telefone || 'Sem telefone'}</div>
               </div>
             </div>

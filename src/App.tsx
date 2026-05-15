@@ -19,7 +19,6 @@ import CaixaAbrir from './pages/CaixaAbrir';
 import CaixaResumo from './pages/CaixaResumo';
 import CaixaFechar from './pages/CaixaFechar';
 import CaixaHistorico from './pages/CaixaHistorico';
-import PublicBooking from './pages/PublicBooking';
 import SubscriptionBlocked from './pages/SubscriptionBlocked';
 import SaaSAdmin from './pages/SaaSAdmin';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -39,7 +38,6 @@ function AppRoutes() {
   if (!session) {
     return (
       <Routes>
-        <Route path="/b/:slug" element={<PublicBooking />} />
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -77,7 +75,6 @@ function AppRoutes() {
   return (
     <CashProvider>
       <Routes>
-        <Route path="/b/:slug" element={<PublicBooking />} />
         <Route path="/caixa/abrir" element={<CaixaAbrir />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />

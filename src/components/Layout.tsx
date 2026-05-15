@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet, 
-  Settings, LogOut, Link as LinkIcon, Sun, Moon, Store, ShoppingCart, 
+  Settings, LogOut, Sun, Moon, Store, ShoppingCart, 
   ShieldCheck, Menu, X 
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
@@ -30,13 +30,6 @@ export default function Layout() {
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
-
-  const copyLink = () => {
-    if (!barbershop) return;
-    const url = `${window.location.origin}/b/${barbershop.slug}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Link de agendamento copiado');
-  };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-950 text-ink-50 font-sans">
@@ -106,10 +99,6 @@ export default function Layout() {
 
         {/* Sidebar Footer */}
         <div className="border-t border-border p-3 space-y-1 bg-ink-950">
-          <button onClick={copyLink} className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted hover:bg-hover-soft transition-colors">
-            <LinkIcon size={16} strokeWidth={1.75} />
-            Link público
-          </button>
           <button onClick={toggle} className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted hover:bg-hover-soft transition-colors">
             {theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
             {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}

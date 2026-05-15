@@ -19,6 +19,7 @@ export interface Barbershop {
   subscription_id: string | null;
   trial_ends_at: string;
   paid_until: string | null;
+  fidelidade_meta: number;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {
@@ -40,6 +41,7 @@ export interface Client {
   id: string; barbershop_id: string; nome: string; telefone: string; email: string;
   aniversario: string | null; observacoes: string; tags: string[];
   lembrete_dias: number; ultima_visita: string | null;
+  fidelidade_contagem: number;
 }
 export interface Appointment {
   id: string; barbershop_id: string; client_id: string; barber_id: string;

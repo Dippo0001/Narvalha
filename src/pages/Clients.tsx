@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import {
   Plus, Search, User, Bell, Pencil, Trash2,
-  MessageCircle, Mail, Smartphone,
+  MessageCircle, Mail, Smartphone, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays } from 'date-fns';
@@ -105,6 +105,8 @@ function ClientsTab() {
         {(clients ?? []).map((c) => {
           const diasSemVisita = c.ultima_visita ? differenceInDays(new Date(), new Date(c.ultima_visita)) : null;
           const isAtrasado = diasSemVisita !== null && diasSemVisita >= c.lembrete_dias;
+          const meta = barbershop?.fidelidade_meta ?? 10;
+          const isProximoGratis = c.fidelidade_contagem >= (meta - 1);
 
           return (
             <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-hover-soft transition-colors">
@@ -114,7 +116,13 @@ function ClientsTab() {
                   {c.nome.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div className="font-medium">{c.nome}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{c.nome}</span>
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isProximoGratis ? 'bg-emerald-400/20 text-emerald-400 ring-1 ring-emerald-400/30 animate-pulse' : 'bg-ink-800 text-ink-400'}`}>
+                      <Star size={8} fill={isProximoGratis ? 'currentColor' : 'none'} />
+                      {isProximoGratis ? 'PRÓXIMO GRÁTIS!' : `${c.fidelidade_contagem}/${meta}`}
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                     <span className="text-xs text-muted">{c.telefone || 'Sem telefone'}</span>
                     {c.ultima_visita && (

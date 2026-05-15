@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   ShoppingCart, Search, X, Plus, Minus, Trash2, User,
   Scissors, Package, Check, Banknote, Smartphone, CreditCard,
-  ChevronRight, UserPlus, AlertTriangle, Copy, MessageCircle,
+  ChevronRight, UserPlus, AlertTriangle, Copy, MessageCircle, Star,
 } from 'lucide-react';
 import type { Service, Product, Client } from '../types/db';
 
@@ -135,88 +135,56 @@ export default function PDV() {
       return;
     }
 
-    // Record order first to link items and commission
+    // 1. Create order as 'aberta'
     const { data: order, error: orderErr } = await supabase.from('orders').insert({
       barbershop_id: barbershop.id,
       client_id: vendaState.client?.id,
       barber_id: vendaState.barberId,
-      total: total,
+      total: subtotal, // Original total without discount/tip (those are params to close_order)
       desconto: desconto,
-      forma_pagamento: formaFinal,
-      status: 'fechada',
-      fechada_em: new Date().toISOString(),
+      status: 'aberta',
+      cash_session_id: cashSession.id,
     }).select('id').single();
 
     if (orderErr) return toast.error(orderErr.message);
 
-    // Save items and handle stock/commission
+    // 2. Save items
     for (const item of cart) {
       let comissao_v = 0;
+      let perc = 0;
       
       if (item.tipo === 'servico') {
-        // Buscar comissão do barbeiro para este serviço ou a padrão
         const { data: b } = await supabase.from('barbers').select('comissao_padrao').eq('id', vendaState.barberId).single();
-        const perc = b?.comissao_padrao ?? 50;
+        perc = b?.comissao_padrao ?? 50;
         comissao_v = (item.preco * item.qtd * perc) / 100;
-        
-        await supabase.from('order_items').insert({
-          order_id: order.id,
-          tipo: 'servico',
-          ref_id: item.id,
-          descricao: item.nome,
-          qtd: item.qtd,
-          valor_unit: item.preco,
-          valor_total: item.preco * item.qtd,
-          comissao_percentual: perc,
-          comissao_valor: comissao_v
-        });
-      } else {
-        // Produto: sem comissão conforme regra do usuário
-        await supabase.from('order_items').insert({
-          order_id: order.id,
-          tipo: 'produto',
-          ref_id: item.id,
-          descricao: item.nome,
-          qtd: item.qtd,
-          valor_unit: item.preco,
-          valor_total: item.preco * item.qtd,
-          comissao_percentual: 0,
-          comissao_valor: 0
-        });
-
-        // Deduct stock
-        const { error: stErr } = await supabase.from('products')
-          .update({ estoque: (products?.find(p => p.id === item.id)?.estoque ?? 0) - item.qtd })
-          .eq('id', item.id);
-        if (stErr) toast.error(`Erro estoque: ${stErr.message}`);
-        
-        await supabase.from('stock_movements').insert({
-          product_id: item.id, tipo: 'saida', qtd: item.qtd, motivo: 'Venda PDV', ref_order_id: order.id
-        });
       }
+        
+      await supabase.from('order_items').insert({
+        order_id: order.id,
+        tipo: item.tipo,
+        ref_id: item.id,
+        descricao: item.nome,
+        qtd: item.qtd,
+        valor_unit: item.preco,
+        valor_total: item.preco * item.qtd,
+        comissao_percentual: perc,
+        comissao_valor: comissao_v
+      });
     }
 
-    // Record cash movement
-    const desc = vendaState.client
-      ? `Venda PDV — ${vendaState.client.nome}`
-      : 'Venda PDV — balcão';
-
-    const { error: mvErr } = await supabase.from('cash_movements').insert({
-      barbershop_id: barbershop.id,
-      cash_session_id: cashSession.id,
-      tipo: 'entrada',
-      categoria: 'venda',
-      descricao: desc,
-      valor: total,
-      forma_pagamento: formaFinal,
-      responsavel_id: member.id,
-      ref_order_id: order.id,
-      data: new Date().toISOString(),
+    // 3. Call close_order RPC (this handles stock, cash movement, and loyalty)
+    const { error: closeErr } = await supabase.rpc('close_order', {
+      p_order_id: order.id,
+      p_forma: formaFinal,
+      p_desconto: desconto,
+      p_gorjeta: 0 // PDV avulso doesn't have tip field yet
     });
-    if (mvErr) return toast.error(mvErr.message);
+
+    if (closeErr) return toast.error(closeErr.message);
 
     await refreshCash();
     qc.invalidateQueries({ queryKey: ['prod-pdv'] });
+    qc.invalidateQueries({ queryKey: ['clients'] }); // Refresh loyalty counters
     refetchProducts();
 
     toast.success(`Venda de ${formatBRL(total)} registrada`);
@@ -314,10 +282,27 @@ export default function PDV() {
           title={vendaState.client ? `Venda — ${vendaState.client.nome}` : 'Venda — balcão'}
           onCancel={() => setCancelModal(true)} />
         
-        <div className="flex items-center gap-2 mb-6 px-4 py-2 bg-ink-900/50 rounded-lg border border-ink-800 w-fit">
-          <User size={14} className="text-ink-500" />
-          <span className="text-xs text-ink-300">Atendimento por: <span className="text-ink-50 font-medium">{currentBarber?.nome_exibicao}</span></span>
-          <button onClick={() => setStep('barber')} className="text-[10px] text-ink-500 hover:text-ink-300 underline ml-2">trocar</button>
+        <div className="flex flex-wrap items-center gap-2 mb-6 px-4 py-2 bg-ink-900/50 rounded-lg border border-ink-800 w-fit">
+          <div className="flex items-center gap-2 pr-2 border-r border-ink-800">
+            <User size={14} className="text-ink-500" />
+            <span className="text-xs text-ink-300">Atendimento por: <span className="text-ink-50 font-medium">{currentBarber?.nome_exibicao}</span></span>
+            <button onClick={() => setStep('barber')} className="text-[10px] text-ink-500 hover:text-ink-300 underline ml-2">trocar</button>
+          </div>
+          {vendaState.client && (
+            <div className="flex items-center gap-2 pl-1">
+              {(() => {
+                const meta = barbershop?.fidelidade_meta ?? 10;
+                const count = vendaState.client.fidelidade_contagem ?? 0;
+                const isProximoGratis = count >= (meta - 1);
+                return (
+                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${isProximoGratis ? 'bg-emerald-400/20 text-emerald-400 ring-1 ring-emerald-400/30 animate-pulse' : 'bg-ink-800 text-ink-400'}`}>
+                    <Star size={10} fill={isProximoGratis ? 'currentColor' : 'none'} />
+                    {isProximoGratis ? 'PRÓXIMO É GRÁTIS!' : `Fidelidade: ${count}/${meta}`}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

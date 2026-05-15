@@ -75,9 +75,9 @@ export default function Onboarding() {
             <h2 className="text-lg text-ink-50">Sua barbearia</h2>
             <div><label className="label">Nome</label>
               <input className="input" value={nome} onChange={(e) => { setNome(e.target.value); setSlug(slugify(e.target.value)); }} required autoFocus /></div>
-            <div><label className="label">Slug (link público)</label>
+            <div><label className="label">Identificador (URL)</label>
               <input className="input" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
-              <p className="text-xs text-ink-500 mt-1">navalha.app/b/{slug || 'sua-barbearia'}</p></div>
+              <p className="text-xs text-ink-500 mt-1">navalha.app/{slug || 'sua-barbearia'}</p></div>
             <div><label className="label">Telefone</label>
               <input 
                 className="input" 

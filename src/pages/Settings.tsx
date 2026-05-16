@@ -98,7 +98,7 @@ const PLANS = [
   { 
     id: 'silver',   
     name: 'Prata',   
-    price: 'R$ 49,90', 
+    price: 'R$ 29,90', 
     color: 'text-slate-400',
     features: ['Até 2 barbeiros', '10 serviços e 10 itens', 'Gestão de Contas Pagar/Receber', 'Suporte 5x2'],
     rank: 1
@@ -106,7 +106,7 @@ const PLANS = [
   { 
     id: 'gold',     
     name: 'Ouro',    
-    price: 'R$ 89,90', 
+    price: 'R$ 49,90', 
     color: 'text-amber-400', 
     popular: true,
     features: ['Até 5 barbeiros', '20 serviços e 20 produtos', 'Módulo Financeiro Completo', 'Suporte 5x2'],
@@ -115,7 +115,7 @@ const PLANS = [
   { 
     id: 'platinum', 
     name: 'Platina', 
-    price: 'R$ 149,90', 
+    price: 'R$ 59,90', 
     color: 'text-cyan-400',
     features: ['Barbeiros ILIMITADOS', 'Serviços/Produtos ILIMITADOS', 'Módulo Promoção Completo', 'Multi-loja (em breve)'],
     rank: 3

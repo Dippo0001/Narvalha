@@ -29,6 +29,7 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 - **Refatoração PDV**: Vendas avulsas agora utilizam o mesmo fluxo de fechamento (`close_order`) das comandas da agenda, garantindo integridade de estoque, caixa e fidelidade.
 - **Controle de Despesas**: Aba financeira completa com contas a pagar/receber, categorias de gastos (aluguel, luz, etc.) e gestão de recorrência.
 - **Caixa às Cegas**: Nova configuração que permite esconder valores esperados no fechamento de caixa, forçando uma contagem física neutra para evitar furos e manipulações.
+- **Período de Teste**: Trial estendido de 7 para 14 dias para novas barbearias.
 
 ### 👥 Gestão de Clientes e LGPD
 - **LGPD Compliance**: Implementada política de privacidade, aceite de termos no signup, consentimento de marketing e logs de transparência.

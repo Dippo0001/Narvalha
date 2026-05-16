@@ -9,36 +9,44 @@ import { toast } from 'sonner';
 import { formatBRL } from '../lib/utils';
 import type { Service } from '../types/db';
 
+const SERVICE_LIMITS: Record<string, number> = { silver: 10, gold: 20, platinum: 999, trial: 999 };
+
 export default function Services() {
   const { barbershop } = useAuth();
   const qc = useQueryClient();
   const [modal, setModal] = useState<Service | 'new' | null>(null);
 
   const { data: services } = useQuery({
-    queryKey: ['services', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('services').select('*').eq('barbershop_id', barbershop!.id).order('ordem');
-      return (data ?? []) as Service[];
-    },
+... rest of query ...
   });
 
+  const canAddService = (services?.length ?? 0) < SERVICE_LIMITS[barbershop?.plan || 'silver'];
+
   const save = async (form: any) => {
-    if (!barbershop) return;
-    const payload = { ...form, barbershop_id: barbershop.id };
-    const { error } = modal === 'new'
-      ? await supabase.from('services').insert(payload)
-      : await supabase.from('services').update(payload).eq('id', (modal as Service).id);
-    if (error) return toast.error(error.message);
-    toast.success('Serviço salvo');
-    qc.invalidateQueries({ queryKey: ['services'] });
-    setModal(null);
+... rest of save ...
   };
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <PageHeader title="Serviços"
-        actions={<button className="btn-primary" onClick={() => setModal('new')}><Plus size={16} /> Novo serviço</button>} />
+        actions={
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] uppercase font-bold text-ink-500 tracking-widest">
+              {services?.length ?? 0} / {SERVICE_LIMITS[barbershop?.plan || 'silver']} usados
+            </span>
+            <button 
+              className="btn-primary" 
+              disabled={!canAddService}
+              onClick={() => {
+                if (!canAddService) return toast.error('Limite de serviços atingido para seu plano.');
+                setModal('new');
+              }}
+            >
+              <Plus size={16} /> Novo serviço
+            </button>
+          </div>
+        } 
+      />
       <div className="card divide-y divide-ink-800">
         {(!services || services.length === 0) && (
           <div className="p-12 text-center">

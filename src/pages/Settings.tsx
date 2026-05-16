@@ -97,9 +97,31 @@ export default function Settings() {
 import { CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
 
 const PLANS = [
-  { id: 'silver',   name: 'Prata',   price: 'R$ 29,90', features: ['Até 2 barbeiros', 'Gestão básica', 'Suporte e-mail'], color: 'text-slate-400' },
-  { id: 'gold',     name: 'Ouro',    price: 'R$ 49,90', features: ['Até 5 barbeiros', 'Financeiro completo', 'Suporte WhatsApp'], color: 'text-amber-400', popular: true },
-  { id: 'platinum', name: 'Platina', price: 'R$ 59,90', features: ['Barbeiros ilimitados', 'Dashboard Admin', 'Gerente de conta'], color: 'text-cyan-400' },
+  { 
+    id: 'silver',   
+    name: 'Prata',   
+    price: 'R$ 49,90', 
+    color: 'text-slate-400',
+    features: ['Até 2 barbeiros', '10 serviços e 10 itens', 'Gestão de Contas Pagar/Receber', 'Suporte 5x2'],
+    rank: 1
+  },
+  { 
+    id: 'gold',     
+    name: 'Ouro',    
+    price: 'R$ 89,90', 
+    color: 'text-amber-400', 
+    popular: true,
+    features: ['Até 5 barbeiros', '20 serviços e 20 produtos', 'Módulo Financeiro Completo', 'Suporte 5x2'],
+    rank: 2
+  },
+  { 
+    id: 'platinum', 
+    name: 'Platina', 
+    price: 'R$ 149,90', 
+    color: 'text-cyan-400',
+    features: ['Barbeiros ILIMITADOS', 'Serviços/Produtos ILIMITADOS', 'Módulo Promoção Completo', 'Multi-loja (em breve)'],
+    rank: 3
+  },
 ];
 
 function SubscriptionTab() {
@@ -138,7 +160,7 @@ function SubscriptionTab() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="card p-6 bg-ink-900 border-ink-800">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
@@ -198,6 +220,61 @@ function SubscriptionTab() {
           </div>
         ))}
       </div>
+
+      {/* Tabela Comparativa */}
+      <div className="mt-12">
+        <h3 className="text-lg font-bold text-center mb-8">Comparativo Detalhado</h3>
+        <div className="card overflow-hidden border-ink-800">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="bg-ink-900/50 text-ink-500 text-[10px] uppercase font-bold tracking-wider">
+                <th className="px-4 py-4 border-b border-ink-800">Funcionalidade</th>
+                <th className="px-4 py-4 border-b border-ink-800 text-center">Prata</th>
+                <th className="px-4 py-4 border-b border-ink-800 text-center">Ouro</th>
+                <th className="px-4 py-4 border-b border-ink-800 text-center">Platina</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-800">
+              <tr>
+                <td className="px-4 py-3 font-medium">Barbeiros</td>
+                <td className="px-4 py-3 text-center text-ink-400">Até 2</td>
+                <td className="px-4 py-3 text-center text-ink-400">Até 5</td>
+                <td className="px-4 py-3 text-center text-emerald-400 font-bold uppercase">Ilimitado</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium">Serviços e Produtos</td>
+                <td className="px-4 py-3 text-center text-ink-400">10 de cada</td>
+                <td className="px-4 py-3 text-center text-ink-400">20 de cada</td>
+                <td className="px-4 py-3 text-center text-emerald-400 font-bold uppercase">Ilimitado</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium">Módulo Financeiro</td>
+                <td className="px-4 py-3 text-center text-ink-400 text-xs">Pagar/Receber</td>
+                <td className="px-4 py-3 text-center text-ink-400">Completo</td>
+                <td className="px-4 py-3 text-center text-ink-400">Completo</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium">Promoções</td>
+                <td className="px-4 py-3 text-center text-ink-400 text-xs">Básico</td>
+                <td className="px-4 py-3 text-center text-ink-400 text-xs">Intermediário</td>
+                <td className="px-4 py-3 text-center text-emerald-400 font-bold uppercase">Completo</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium">Suporte</td>
+                <td className="px-4 py-3 text-center text-ink-400 text-xs">Email 5x2</td>
+                <td className="px-4 py-3 text-center text-ink-400 text-xs">WhatsApp 5x2</td>
+                <td className="px-4 py-3 text-center text-emerald-400 font-bold uppercase">Prioritário</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium">Multi-loja</td>
+                <td className="px-4 py-3 text-center text-red-500/50">—</td>
+                <td className="px-4 py-3 text-center text-red-500/50">—</td>
+                <td className="px-4 py-3 text-center text-emerald-400">Disponível</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       
       <p className="text-center text-xs text-ink-500">
         Pagamentos processados com segurança via Stripe. Cancele a qualquer momento.
@@ -206,32 +283,38 @@ function SubscriptionTab() {
   );
 }
 
+const BARBER_LIMITS: Record<string, number> = { silver: 2, gold: 5, platinum: 999, trial: 999 };
+
 function BarbersTab({ qc }: any) {
   const { barbershop } = useAuth();
   const [modal, setModal] = useState<Barber | 'new' | null>(null);
+  
   const { data: barbers } = useQuery({
-    queryKey: ['barbers-settings', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('barbers').select('*').eq('barbershop_id', barbershop!.id).order('nome_exibicao');
-      return (data ?? []) as Barber[];
-    },
+... rest of query ...
   });
+
+  const canAddBarber = (barbers?.length ?? 0) < BARBER_LIMITS[barbershop?.plan || 'silver'];
+
   const save = async (form: any) => {
-    if (!barbershop) return;
-    const payload = { ...form, barbershop_id: barbershop.id };
-    const { error } = modal === 'new'
-      ? await supabase.from('barbers').insert(payload)
-      : await supabase.from('barbers').update(payload).eq('id', (modal as Barber).id);
-    if (error) return toast.error(error.message);
-    toast.success('Salvo');
-    qc.invalidateQueries({ queryKey: ['barbers-settings'] });
-    setModal(null);
+... rest of save ...
   };
+
   return (
     <div>
-      <div className="flex justify-end mb-3">
-        <button className="btn-primary" onClick={() => setModal('new')}><Plus size={16} /> Adicionar barbeiro</button>
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-xs text-ink-500">
+          Uso de equipe: <span className="font-bold text-ink-300">{barbers?.length ?? 0} de {BARBER_LIMITS[barbershop?.plan || 'silver']}</span>
+        </div>
+        <button 
+          className="btn-primary" 
+          disabled={!canAddBarber}
+          onClick={() => {
+            if (!canAddBarber) return toast.error('Limite de barbeiros atingido para o seu plano. Faça um upgrade!');
+            setModal('new');
+          }}
+        >
+          <Plus size={16} /> Adicionar barbeiro
+        </button>
       </div>
       <div className="card divide-y divide-ink-800">
         {(barbers ?? []).map((b) => (

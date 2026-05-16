@@ -25,6 +25,8 @@ export default function Products() {
   );
 }
 
+const PRODUCT_LIMITS: Record<string, number> = { silver: 10, gold: 20, platinum: 999, trial: 999 };
+
 /* ─── Estoque ──────────────────────────────────────────────────── */
 function EstoqueTab() {
   const { barbershop } = useAuth();
@@ -34,48 +36,33 @@ function EstoqueTab() {
   const [editModal, setEditModal] = useState<Product | null>(null);
 
   const { data: products } = useQuery({
-    queryKey: ['products', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('products').select('*').eq('barbershop_id', barbershop!.id).order('nome');
-      return (data ?? []) as Product[];
-    },
+... rest of query ...
   });
 
+  const canAddProduct = (products?.length ?? 0) < PRODUCT_LIMITS[barbershop?.plan || 'silver'];
+
   const save = async (form: Partial<Product>) => {
-    if (!barbershop) return;
-    const payload = { ...form, barbershop_id: barbershop.id };
-    const { error } = modal === 'new'
-      ? await supabase.from('products').insert(payload)
-      : await supabase.from('products').update(payload).eq('id', (modal as Product).id);
-    if (error) return toast.error(error.message);
-    toast.success('Produto salvo');
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setModal(null);
+... rest of save ...
   };
 
-  const saveEdit = async (form: { custo: number; preco: number; foto_url: string }) => {
-    if (!editModal) return;
-    const { error } = await supabase.from('products').update(form).eq('id', editModal.id);
-    if (error) return toast.error(error.message);
-    toast.success('Produto atualizado');
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setEditModal(null);
-  };
-
-  const addStock = async (product: Product, qtd: number, motivo: string) => {
-    const { error } = await supabase.from('stock_movements').insert({ product_id: product.id, tipo: 'entrada', qtd, motivo });
-    if (error) return toast.error(error.message);
-    await supabase.from('products').update({ estoque: product.estoque + qtd }).eq('id', product.id);
-    toast.success('Estoque atualizado');
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setStockModal(null);
-  };
+... rest of helper functions ...
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <button className="btn-primary" onClick={() => setModal('new')}><Plus size={15} /> Novo produto</button>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-xs text-ink-500 font-medium">
+          Capacidade do catálogo: <span className="text-ink-300 font-bold">{products?.length ?? 0} de {PRODUCT_LIMITS[barbershop?.plan || 'silver']}</span>
+        </div>
+        <button 
+          className="btn-primary" 
+          disabled={!canAddProduct}
+          onClick={() => {
+            if (!canAddProduct) return toast.error('Limite de produtos atingido. Faça upgrade para aumentar seu catálogo!');
+            setModal('new');
+          }}
+        >
+          <Plus size={15} /> Novo produto
+        </button>
       </div>
 
       <div className="card overflow-hidden">

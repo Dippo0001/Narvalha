@@ -50,20 +50,25 @@ interface Promotion {
 }
 
 /* ─── catalog ────────────────────────────────────────────────────── */
-const TIPOS: { tipo: PromotionTipo; label: string; sub: string; icon: any; color: string; disabled?: boolean }[] = [
-  { tipo: 'cashback',         label: 'Cashback',                icon: Coins,       color: 'text-amber-400',  sub: '% de volta a cada corte', disabled: true },
-  { tipo: 'primeiro_corte',   label: 'Primeiro Corte',          icon: Scissors,    color: 'text-sky-400',    sub: 'Desconto na 1ª visita' },
-  { tipo: 'aniversario',      label: 'Aniversário',             icon: Cake,        color: 'text-pink-400',   sub: 'Desconto no dia/semana/mês' },
-  { tipo: 'fidelidade',       label: 'Fidelidade',              icon: Trophy,      color: 'text-yellow-400', sub: 'Corte X vezes → próximo grátis' },
-  { tipo: 'happy_hour',       label: 'Happy Hour',              icon: Clock,       color: 'text-emerald-400',sub: 'Desconto em horários fixos' },
-  { tipo: 'dia_fixo',         label: 'Dia Fixo',                icon: CalendarDays,color: 'text-teal-400',   sub: 'Ex: Terça do Corte Social' },
-  { tipo: 'primeiro_horario', label: 'Primeiro Horário',        icon: Clock,       color: 'text-cyan-400',   sub: 'Desconto no 1º slot do dia' },
-  { tipo: 'combo',            label: 'Combo de Serviços',       icon: Layers,      color: 'text-orange-400', sub: 'Pacote de serviços com valor fixo' },
-  { tipo: 'retorno',          label: 'Retorno',                 icon: RotateCcw,   color: 'text-blue-400',   sub: 'Desconto ao retornar em X dias' },
-  { tipo: 'pacote',           label: 'Pacote Pré-pago',         icon: PackageCheck,color: 'text-lime-400',   sub: 'Pague 4, leve 5 cortes' },
-  { tipo: 'assinatura',       label: 'Assinatura Mensal',       icon: CreditCard,  color: 'text-violet-400', sub: 'Receita recorrente previsível', disabled: true },
-  { tipo: 'produto_servico',  label: 'Produto + Serviço',       icon: ShoppingBag, color: 'text-rose-400',   sub: 'Produto com desconto no dia do corte' },
+const TIPOS: { tipo: PromotionTipo; label: string; sub: string; icon: any; color: string; rank: 'silver' | 'gold' | 'platinum'; disabled?: boolean }[] = [
+  { tipo: 'aniversario',      label: 'Aniversário',             icon: Cake,        color: 'text-pink-400',   sub: 'Desconto no dia/semana/mês', rank: 'silver' },
+  { tipo: 'happy_hour',       label: 'Happy Hour',              icon: Clock,       color: 'text-emerald-400',sub: 'Desconto em horários fixos', rank: 'silver' },
+  { tipo: 'dia_fixo',         label: 'Dia Fixo',                icon: CalendarDays,color: 'text-teal-400',   sub: 'Ex: Terça do Corte Social', rank: 'silver' },
+  { tipo: 'produto_servico',  label: 'Produto + Serviço',       icon: ShoppingBag, color: 'text-rose-400',   sub: 'Produto com desconto no dia do corte', rank: 'silver' },
+  { tipo: 'primeiro_corte',   label: 'Primeiro Corte',          icon: Scissors,    color: 'text-sky-400',    sub: 'Desconto na 1ª visita', rank: 'silver' },
+  
+  { tipo: 'cashback',         label: 'Cashback',                icon: Coins,       color: 'text-amber-400',  sub: '% de volta a cada corte', rank: 'gold' },
+  { tipo: 'fidelidade',       label: 'Fidelidade',              icon: Trophy,      color: 'text-yellow-400', sub: 'Corte X vezes → próximo grátis', rank: 'gold' },
+  { tipo: 'primeiro_horario', label: 'Primeiro Horário',        icon: Clock,       color: 'text-cyan-400',   sub: 'Desconto no 1º slot do dia', rank: 'gold' },
+  { tipo: 'retorno',          label: 'Retorno',                 icon: RotateCcw,   color: 'text-blue-400',   sub: 'Desconto ao retornar em X dias', rank: 'gold' },
+  { tipo: 'combo',            label: 'Combo de Serviços',       icon: Layers,      color: 'text-orange-400', sub: 'Pacote de serviços com valor fixo', rank: 'gold' },
+  
+  { tipo: 'assinatura',       label: 'Assinatura Mensal',       icon: CreditCard,  color: 'text-violet-400', sub: 'Receita recorrente previsível', rank: 'platinum' },
+  { tipo: 'pacote',           label: 'Pacote Pré-pago',         icon: PackageCheck,color: 'text-lime-400',   sub: 'Pague 4, leve 5 cortes', rank: 'platinum' },
 ];
+
+const PLAN_RANK: Record<string, number> = { trial: 3, silver: 1, gold: 2, platinum: 3 };
+const RANK_LEVEL: Record<string, number> = { silver: 1, gold: 2, platinum: 3 };
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -176,25 +181,32 @@ export default function Promotions() {
       {/* Pick type modal */}
       <Modal open={pickModal} onClose={() => setPickModal(false)} title="Escolha o tipo de promoção" wide>
         <div className="grid grid-cols-2 gap-2">
-          {TIPOS.map((t) => (
-            <button
-              key={t.tipo}
-              disabled={t.disabled}
-              onClick={() => { setNewTipo(t.tipo); setPickModal(false); }}
-              className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${t.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-hover-soft'}`}
-              style={{ borderColor: 'var(--border)' }}
-            >
-              <t.icon size={20} className={t.color} />
-              <div>
-                <div className="text-sm font-medium flex items-center gap-2">
-                  {t.label}
-                  {t.disabled && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">Em desenvolvimento</span>}
+          {TIPOS.map((t) => {
+            const hasAccess = PLAN_RANK[barbershop?.plan || 'silver'] >= RANK_LEVEL[t.rank];
+            return (
+              <button
+                key={t.tipo}
+                disabled={!hasAccess || t.disabled}
+                onClick={() => { setNewTipo(t.tipo); setPickModal(false); }}
+                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors relative overflow-hidden ${(!hasAccess || t.disabled) ? 'opacity-50 cursor-not-allowed bg-ink-900/50' : 'hover:bg-hover-soft'}`}
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <t.icon size={20} className={t.color} />
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {t.label}
+                    {!hasAccess && (
+                      <span className="text-[9px] bg-amber-500 text-ink-950 px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">
+                        Plano {t.rank === 'gold' ? 'Ouro' : 'Platina'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted">{t.sub}</div>
                 </div>
-                <div className="text-xs text-muted">{t.sub}</div>
-              </div>
-              {!t.disabled && <ChevronRight size={14} className="ml-auto text-muted shrink-0" />}
-            </button>
-          ))}
+                {hasAccess && !t.disabled && <ChevronRight size={14} className="ml-auto text-muted shrink-0" />}
+              </button>
+            );
+          })}
         </div>
       </Modal>
 

@@ -4,6 +4,29 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { slugify, maskPhone, isValidPhone } from '../lib/utils';
 import { toast } from 'sonner';
+import { CheckCircle2, Sparkles, CreditCard } from 'lucide-react';
+
+const PLANS = [
+  { 
+    id: 'silver',   
+    name: 'Prata',   
+    price: 'R$ 29,90', 
+    features: ['Até 2 barbeiros', '10 serviços e 10 itens', 'Contas Pagar/Receber'],
+  },
+  { 
+    id: 'gold',     
+    name: 'Ouro',    
+    price: 'R$ 49,90', 
+    popular: true,
+    features: ['Até 5 barbeiros', '20 serviços e produtos', 'Financeiro Completo'],
+  },
+  { 
+    id: 'platinum', 
+    name: 'Platina', 
+    price: 'R$ 59,90', 
+    features: ['Barbeiros ILIMITADOS', 'Serviços/Produtos ILIMITADOS', 'Promoções Completas'],
+  },
+];
 
 export default function Onboarding() {
   const nav = useNavigate();
@@ -14,6 +37,7 @@ export default function Onboarding() {
   const [slug, setSlug] = useState('');
   const [telefone, setTelefone] = useState('');
   const [bshopId, setBshopId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState('silver');
   const [barberName, setBarberName] = useState('');
   const [services, setServices] = useState([
     { nome: 'Corte', duracao_min: 30, valor: 50 },
@@ -33,9 +57,17 @@ export default function Onboarding() {
     const { data, error } = await supabase.rpc('create_barbershop', {
       p_nome: nome, p_slug: finalSlug, p_telefone: telefone.replace(/\D/g, ''),
     });
-    setLoading(false);
-    if (error) return toast.error(error.message);
+    
+    if (error) {
+      setLoading(false);
+      return toast.error(error.message);
+    }
+
+    // Update plan selection (defaults to trial 14 days in DB, but we set the UI choice here)
+    await supabase.from('barbershops').update({ plan: selectedPlan }).eq('id', data);
+
     setBshopId(data as string);
+    setLoading(false);
     setStep(2);
   };
 
@@ -65,40 +97,86 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink-950 px-4 py-10">
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-4xl">
         <div className="text-center mb-8">
           <div className="logo text-4xl text-ink-50">Navalha</div>
           <p className="text-sm text-ink-500 mt-2">Passo {step} de 3</p>
         </div>
+
         {step === 1 && (
-          <form onSubmit={createShop} className="card p-6 space-y-4">
-            <h2 className="text-lg text-ink-50">Sua barbearia</h2>
-            <div><label className="label">Nome</label>
-              <input className="input" value={nome} onChange={(e) => { setNome(e.target.value); setSlug(slugify(e.target.value)); }} required autoFocus /></div>
-            <div><label className="label">Identificador (URL)</label>
-              <input className="input" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
-              <p className="text-xs text-ink-500 mt-1">navalha.app/{slug || 'sua-barbearia'}</p></div>
-            <div><label className="label">Telefone</label>
-              <input 
-                className="input" 
-                value={telefone} 
-                onChange={(e) => setTelefone(maskPhone(e.target.value))} 
-                placeholder="(85) 98888-8888" 
-              /></div>
-            <button className="btn-primary w-full" disabled={loading}>Continuar</button>
-          </form>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+            <form onSubmit={createShop} className="lg:col-span-2 card p-6 space-y-4">
+              <h2 className="text-lg text-ink-50">Sua barbearia</h2>
+              <div><label className="label">Nome</label>
+                <input className="input" value={nome} onChange={(e) => { setNome(e.target.value); setSlug(slugify(e.target.value)); }} required autoFocus /></div>
+              <div><label className="label">Identificador (URL)</label>
+                <input className="input" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
+                <p className="text-xs text-ink-500 mt-1">navalha.app/{slug || 'sua-barbearia'}</p></div>
+              <div><label className="label">Telefone</label>
+                <input 
+                  className="input" 
+                  value={telefone} 
+                  onChange={(e) => setTelefone(maskPhone(e.target.value))} 
+                  placeholder="(85) 98888-8888" 
+                /></div>
+              
+              <div className="pt-4 border-t border-ink-800">
+                <div className="flex items-center gap-2 text-emerald-400 mb-3">
+                  <Sparkles size={16} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Oferta de Lançamento</span>
+                </div>
+                <p className="text-xs text-ink-300 leading-relaxed">
+                  Escolha seu plano ao lado. Você terá <strong className="text-emerald-400">14 dias de ACESSO TOTAL GRATUITO</strong> para configurar e usar. Não pedimos cartão agora!
+                </p>
+              </div>
+
+              <button className="btn-primary w-full" disabled={loading}>Começar meu Teste Grátis</button>
+            </form>
+
+            <div className="lg:col-span-3 space-y-4">
+              <h3 className="text-sm font-bold text-ink-500 uppercase tracking-widest ml-1">Escolha um Plano para Iniciar</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {PLANS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedPlan(p.id)}
+                    className={`card p-4 text-left border-2 transition-all relative ${selectedPlan === p.id ? 'border-ink-50 bg-ink-900' : 'border-ink-800 hover:border-ink-700'}`}
+                  >
+                    {p.popular && <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-[8px] text-white px-1.5 py-0.5 rounded-full font-bold uppercase">Melhor Escolha</span>}
+                    <div className="text-xs font-bold text-ink-400 uppercase mb-1">{p.name}</div>
+                    <div className="text-lg font-bold text-ink-50 mb-3">{p.price}</div>
+                    <ul className="space-y-1.5 mb-4">
+                      {p.features.map(f => (
+                        <li key={f} className="text-[10px] text-ink-400 flex items-start gap-1.5">
+                          <CheckCircle2 size={10} className="text-emerald-500 shrink-0 mt-0.5" /> {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto text-[9px] text-center font-medium text-emerald-500 bg-emerald-500/10 py-1 rounded">
+                      14 DIAS GRÁTIS
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
+
         {step === 2 && (
-          <form onSubmit={createBarber} className="card p-6 space-y-4">
+          <form onSubmit={createBarber} className="card p-6 space-y-4 max-w-lg mx-auto">
             <h2 className="text-lg text-ink-50">Primeiro barbeiro</h2>
+            <p className="text-xs text-ink-500">Cadastre-se ou seu primeiro colaborador para começar a agenda.</p>
             <div><label className="label">Nome de exibição</label>
               <input className="input" value={barberName} onChange={(e) => setBarberName(e.target.value)} required autoFocus /></div>
             <button className="btn-primary w-full" disabled={loading}>Continuar</button>
           </form>
         )}
+
         {step === 3 && (
-          <div className="card p-6 space-y-4">
+          <div className="card p-6 space-y-4 max-w-lg mx-auto">
             <h2 className="text-lg text-ink-50">Seus serviços</h2>
+            <p className="text-xs text-ink-500">Adicione os serviços básicos que você oferece.</p>
             
             <div className="grid grid-cols-6 gap-2 px-1">
               <span className="text-[10px] uppercase font-bold text-ink-500 col-span-3">Serviço</span>
@@ -113,7 +191,7 @@ export default function Onboarding() {
                 <input className="input col-span-2 text-center" type="number" step="0.01" value={s.valor} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, valor: +e.target.value } : x))} />
               </div>
             ))}
-            <button onClick={createServices} className="btn-primary w-full" disabled={loading}>Concluir</button>
+            <button onClick={createServices} className="btn-primary w-full" disabled={loading}>Concluir Onboarding</button>
           </div>
         )}
       </div>

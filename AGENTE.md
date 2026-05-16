@@ -39,24 +39,23 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 
 ### 🎨 Interface e Mobile
 - **Mobile-First Layout**: Implementado menu sanduíche (hambúrguer) e layout 100% responsivo e proporcional.
-- **Tema Personalizado**: Tema claro ajustado para um tom de **bege sofisticado** com textos em preto.
-- **Login Social**: Implementado botão "Entrar com Google" na tela de login.
+- **Período de Teste**: Trial estendido de 7 para 14 dias para novas barbearias.
+- **Régua de Cobrança e Suspensão**: Implementada lógica de 10 dias de carência pós-vencimento. Inclui avisos preventivos (5 dias antes), popups diários de inadimplência (1x ao dia) e bloqueio total no 11º dia.
 
----
+### 👥 Gestão de Clientes e LGPD
+... rest of file ...
 
 ## 🗺 Norte do Projeto (Roadmap)
 
-### 🚀 Roadmap SaaS (TO-DO)
-- [x] **Controle de Acesso por Assinatura**: Bloquear acesso total ao sistema caso a mensalidade não esteja paga. (Implementado via RLS e Frontend redirect)
-- [x] **Dashboard de Administração SaaS**: Tela para você (dono do Narvalha) gerenciar todos os clientes, pagamentos e bloqueios.
-- [x] **Portal de Pagamento (Checkout)**: Criar tela de pagamento (Stripe) exclusiva para o dono da barbearia assinar o Narvalha. (Implementado via Stripe Checkout e Edge Functions)
-- [ ] **Isolamento de Dados (Multi-tenancy)**: Refinar via RLS (Row Level Security) do Supabase para garantir isolamento total.
-- [ ] **Sistema de Subdomínios**: Implementar lógica para que cada barbearia tenha seu link único (ex: `barbearia-do-ze.narvalha.com.br`).
+### 🚀 Roadmap SaaS (Aguardando Domínio)
+- [ ] **Isolamento de Dados (Multi-tenancy)**: Refinar via RLS (Row Level Security) do Supabase para garantir isolamento total entre inquilinos.
+- [ ] **Sistema de Subdomínios**: Implementar lógica para que cada barbearia tenha seu link único via subdomínio (ex: `barbearia-do-ze.narvalha.com.br`).
+- [ ] **Portal Administrativo Dedicado**: Mover a gestão SaaS para um domínio exclusivo (ex: `admin.narvalha.com`).
 
 ### 📈 Funcionalidades de Negócio
 - [ ] **Dashboard Estatístico**: Gráficos de faturamento diário, semanal e mensal.
-- [x] **Sistema de Fidelidade**: Contador de serviços para dar "o 10º corte gratuito".
-- [x] **Controle de Despesas**: Aba para cadastrar gastos fixos (aluguel, luz) e variáveis.
+- [x] **Sistema de Fidelidade**: Contador de serviços automatizado via RPC `close_order`.
+- [x] **Controle de Despesas**: Aba financeira completa com contas a pagar e gestão de recorrência.
 - [ ] **App PWA**: Configurar para que o dono da barbearia possa "instalar" o site como um app no celular.
 - [ ] **Integração de Fotos**: Upload de fotos de "Antes e Depois" vinculadas ao cliente.
 
@@ -69,6 +68,7 @@ Para que o desenvolvimento flua rápido, a IA deve possuir estas habilidades:
 - **Arquiteto React/TypeScript**: Criação de componentes performáticos e tipagem rigorosa.
 - **Foco em Mobile UX**: Design pensado para o barbeiro que usa o celular com uma mão só enquanto trabalha.
 - **Otimização de Contexto**: Capacidade de entender as regras de multi-tenant (várias barbearias no mesmo banco).
+- **DNS e Routing**: Conhecimento em subdomínios dinâmicos e redirecionamento de host.
 
 ---
 

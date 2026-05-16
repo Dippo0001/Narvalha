@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
-import { toast } from 'sonner';
+import SubscriptionAlerts from './SubscriptionAlerts';
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -115,6 +115,7 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-auto flex flex-col w-full pt-16 lg:pt-0">
+        <SubscriptionAlerts />
         <div className="flex-1 overflow-auto">
           <Outlet />
         </div>

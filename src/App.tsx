@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './lib/auth-context';
 import { CashProvider } from './lib/cash-context';
+import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Onboarding from './pages/Onboarding';
@@ -55,14 +56,15 @@ function AppRoutes() {
     );
   }
 
-  // Subscription check (Temporarily disabled by user request)
-  /*
-  const isSubscriptionActive = 
-    barbershop?.subscription_status === 'active' || 
-    (barbershop?.subscription_status === 'trialing' && new Date(barbershop.trial_ends_at) > new Date()) ||
-    (barbershop?.paid_until && new Date(barbershop.paid_until) > new Date());
+  // Subscription check: Hard block only after 10 days of grace period
+  const expiration = barbershop?.paid_until 
+    ? new Date(barbershop.paid_until) 
+    : new Date(barbershop?.trial_ends_at || 0);
 
-  if (!isSubscriptionActive && !isAdmin) {
+  const blockDate = addDays(expiration, 10);
+  const isHardBlocked = isAfter(new Date(), blockDate);
+
+  if (isHardBlocked && !isAdmin) {
     return (
       <Routes>
         <Route path="/assinatura-bloqueada" element={<SubscriptionBlocked />} />
@@ -70,7 +72,6 @@ function AppRoutes() {
       </Routes>
     );
   }
-  */
 
   return (
     <CashProvider>

@@ -17,13 +17,26 @@ export default function Services() {
   const [modal, setModal] = useState<Service | 'new' | null>(null);
 
   const { data: services } = useQuery({
-... rest of query ...
+    queryKey: ['services', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('services').select('*').eq('barbershop_id', barbershop!.id).order('ordem');
+      return (data ?? []) as Service[];
+    },
   });
 
   const canAddService = (services?.length ?? 0) < SERVICE_LIMITS[barbershop?.plan || 'silver'];
 
   const save = async (form: any) => {
-... rest of save ...
+    if (!barbershop) return;
+    const payload = { ...form, barbershop_id: barbershop.id };
+    const { error } = modal === 'new'
+      ? await supabase.from('services').insert(payload)
+      : await supabase.from('services').update(payload).eq('id', (modal as Service).id);
+    if (error) return toast.error(error.message);
+    toast.success('Serviço salvo');
+    qc.invalidateQueries({ queryKey: ['services'] });
+    setModal(null);
   };
 
   return (

@@ -36,16 +36,45 @@ function EstoqueTab() {
   const [editModal, setEditModal] = useState<Product | null>(null);
 
   const { data: products } = useQuery({
-... rest of query ...
+    queryKey: ['products', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('products').select('*').eq('barbershop_id', barbershop!.id).order('nome');
+      return (data ?? []) as Product[];
+    },
   });
 
   const canAddProduct = (products?.length ?? 0) < PRODUCT_LIMITS[barbershop?.plan || 'silver'];
 
   const save = async (form: Partial<Product>) => {
-... rest of save ...
+    if (!barbershop) return;
+    const payload = { ...form, barbershop_id: barbershop.id };
+    const { error } = modal === 'new'
+      ? await supabase.from('products').insert(payload)
+      : await supabase.from('products').update(payload).eq('id', (modal as Product).id);
+    if (error) return toast.error(error.message);
+    toast.success('Produto salvo');
+    qc.invalidateQueries({ queryKey: ['products'] });
+    setModal(null);
   };
 
-... rest of helper functions ...
+  const saveEdit = async (form: { custo: number; preco: number; foto_url: string }) => {
+    if (!editModal) return;
+    const { error } = await supabase.from('products').update(form).eq('id', editModal.id);
+    if (error) return toast.error(error.message);
+    toast.success('Produto atualizado');
+    qc.invalidateQueries({ queryKey: ['products'] });
+    setEditModal(null);
+  };
+
+  const addStock = async (product: Product, qtd: number, motivo: string) => {
+    const { error } = await supabase.from('stock_movements').insert({ product_id: product.id, tipo: 'entrada', qtd, motivo });
+    if (error) return toast.error(error.message);
+    await supabase.from('products').update({ estoque: product.estoque + qtd }).eq('id', product.id);
+    toast.success('Estoque atualizado');
+    qc.invalidateQueries({ queryKey: ['products'] });
+    setStockModal(null);
+  };
 
   return (
     <>

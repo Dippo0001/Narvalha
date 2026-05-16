@@ -94,8 +94,6 @@ export default function Settings() {
   );
 }
 
-import { CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
-
 const PLANS = [
   { 
     id: 'silver',   
@@ -290,13 +288,26 @@ function BarbersTab({ qc }: any) {
   const [modal, setModal] = useState<Barber | 'new' | null>(null);
   
   const { data: barbers } = useQuery({
-... rest of query ...
+    queryKey: ['barbers-settings', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('barbers').select('*').eq('barbershop_id', barbershop!.id).order('nome_exibicao');
+      return (data ?? []) as Barber[];
+    },
   });
 
   const canAddBarber = (barbers?.length ?? 0) < BARBER_LIMITS[barbershop?.plan || 'silver'];
 
   const save = async (form: any) => {
-... rest of save ...
+    if (!barbershop) return;
+    const payload = { ...form, barbershop_id: barbershop.id };
+    const { error } = modal === 'new'
+      ? await supabase.from('barbers').insert(payload)
+      : await supabase.from('barbers').update(payload).eq('id', (modal as Barber).id);
+    if (error) return toast.error(error.message);
+    toast.success('Salvo');
+    qc.invalidateQueries({ queryKey: ['barbers-settings'] });
+    setModal(null);
   };
 
   return (

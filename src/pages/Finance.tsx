@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import { formatBRL } from '../lib/utils';
 import {
   startOfDay, endOfDay, subDays, format, isPast, isToday, parseISO,
+  addDays, setDate, setDay, nextDay, startOfMonth, endOfMonth,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2, CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
@@ -20,11 +21,31 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: 'pagar',    label: 'Contas a Pagar',       icon: TrendingDown },
   { key: 'receber',  label: 'Contas a Receber',     icon: TrendingUp },
   { key: 'formas',   label: 'Formas de Pagamento',  icon: CreditCard },
-  { key: 'comissoes',label: 'Comissões',             icon: Users2 },
+  { key: 'comissoes',label: 'Relatório Comissões', icon: Users2 },
   { key: 'relatorios',label: 'Relatórios',           icon: BarChart2 },
 ];
 
+function getVencimentoComissao(frequencia: string, dia: string): string {
+  const hoje = new Date();
+  if (frequencia === 'diario') return hoje.toISOString().split('T')[0];
+  
+  if (frequencia === 'semanal') {
+    const d = parseInt(dia);
+    const venc = setDay(hoje, d);
+    return (isPast(venc) && !isToday(venc) ? addDays(venc, 7) : venc).toISOString().split('T')[0];
+  }
+
+  if (frequencia === 'mensal') {
+    const d = parseInt(dia);
+    const venc = setDate(hoje, d);
+    return (isPast(venc) && !isToday(venc) ? addDays(startOfMonth(addDays(hoje, 30)), d - 1) : venc).toISOString().split('T')[0];
+  }
+
+  return hoje.toISOString().split('T')[0];
+}
+
 export default function Finance() {
+// ... rest of Finance function ...
   const [tab, setTab] = useState<Tab>('caixa');
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -189,19 +210,81 @@ function ContasPagar() {
   const [modal, setModal] = useState<any | 'new' | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'pago' | 'vencido'>('todos');
 
-  const { data: contas, isLoading } = useQuery({
-    queryKey: ['contas_pagar', barbershop?.id],
+  const { data: rawData, isLoading } = useQuery({
+    queryKey: ['contas_pagar_full', barbershop?.id],
     enabled: !!barbershop,
     queryFn: async () => {
-      const { data } = await supabase.from('contas_pagar').select('*')
+      // 1. Fetch regular accounts payable
+      const { data: contas } = await supabase.from('contas_pagar').select('*')
         .eq('barbershop_id', barbershop!.id).order('vencimento');
-      return data ?? [];
+      
+      // 2. Fetch all time commissions (or last 90 days for performance)
+      const start = subDays(new Date(), 90).toISOString();
+      const { data: orders } = await supabase.from('orders').select('id,barber_id,barbers(nome_exibicao)')
+        .eq('barbershop_id', barbershop!.id).eq('status', 'fechada').gte('fechada_em', start);
+      
+      const { data: items } = await supabase.from('order_items').select('order_id,comissao_valor')
+        .in('order_id', (orders ?? []).map((o: any) => o.id));
+
+      const { data: payments } = await supabase.from('barber_payments')
+        .select('*').eq('barbershop_id', barbershop!.id).gte('pago_em', start);
+
+      // 3. Summarize commissions per barber
+      const bMap = new Map<string, { nome: string; total: number; pago: number; lastPayment: string | null }>();
+      (orders ?? []).forEach((o: any) => {
+        const cur = bMap.get(o.barber_id) ?? { nome: o.barbers?.nome_exibicao ?? '—', total: 0, pago: 0, lastPayment: null };
+        const ordItems = (items ?? []).filter((i: any) => i.order_id === o.id);
+        cur.total += ordItems.reduce((s: number, i: any) => s + Number(i.comissao_valor), 0);
+        bMap.set(o.barber_id, cur);
+      });
+
+      const paymentRows: any[] = [];
+      (payments ?? []).forEach((p: any) => {
+        const cur = bMap.get(p.barber_id);
+        if (cur) {
+          cur.pago += Number(p.valor);
+          bMap.set(p.barber_id, cur);
+        }
+        // Create virtual "paid" row for each payment
+        paymentRows.push({
+          id: `pay-${p.id}`,
+          descricao: `Pagamento Comissão: ${cur?.nome || 'Barbeiro'}`,
+          categoria: 'comissao',
+          valor: p.valor,
+          vencimento: p.pago_em.split('T')[0],
+          status: 'pago',
+          is_virtual: true
+        });
+      });
+
+      // 4. Create virtual "pending" rows for current balance
+      const commissionDueRows: any[] = [];
+      const venc = getVencimentoComissao(barbershop?.comissao_frequencia || 'semanal', barbershop?.comissao_dia_pagamento || '6');
+      
+      bMap.forEach((data, bid) => {
+        const saldo = data.total - data.pago;
+        if (saldo > 0.01) {
+          commissionDueRows.push({
+            id: `due-${bid}`,
+            barber_id: bid,
+            descricao: `Comissão: ${data.nome}`,
+            categoria: 'comissao',
+            valor: saldo,
+            vencimento: venc,
+            status: 'pendente',
+            is_virtual: true
+          });
+        }
+      });
+
+      return [...(contas ?? []), ...paymentRows, ...commissionDueRows];
     },
   });
 
-  const visivel = (contas ?? []).filter((c: any) => filtro === 'todos' || c.status === filtro);
-  const totPendente = (contas ?? []).filter((c: any) => c.status === 'pendente').reduce((s: number, c: any) => s + Number(c.valor), 0);
-  const totPago = (contas ?? []).filter((c: any) => c.status === 'pago').reduce((s: number, c: any) => s + Number(c.valor), 0);
+  const contas = (rawData ?? []).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  const visivel = contas.filter((c: any) => filtro === 'todos' || c.status === filtro);
+  const totPendente = contas.filter((c: any) => c.status === 'pendente').reduce((s: number, c: any) => s + Number(c.valor), 0);
+  const totPago = contas.filter((c: any) => c.status === 'pago').reduce((s: number, c: any) => s + Number(c.valor), 0);
 
   const save = async (form: any) => {
     if (!barbershop) return;
@@ -211,23 +294,41 @@ function ContasPagar() {
       : await supabase.from('contas_pagar').update(payload).eq('id', modal.id);
     if (error) return toast.error(error.message);
     toast.success('Salvo');
-    qc.invalidateQueries({ queryKey: ['contas_pagar'] });
+    qc.invalidateQueries({ queryKey: ['contas_pagar_full'] });
     setModal(null);
   };
 
   const marcarPago = async (c: any) => {
+    if (c.id.startsWith('due-')) {
+      // It's a commission payment
+      setModal({ type: 'commission_pay', barber_id: c.barber_id, nome: c.descricao.replace('Comissão: ', ''), valor: c.valor });
+      return;
+    }
     await supabase.from('contas_pagar').update({ status: 'pago', pago_em: new Date().toISOString().slice(0, 10) }).eq('id', c.id);
-    qc.invalidateQueries({ queryKey: ['contas_pagar'] });
+    qc.invalidateQueries({ queryKey: ['contas_pagar_full'] });
     toast.success('Marcado como pago');
   };
 
+  const handlePayCommission = async (form: any) => {
+    const { error } = await supabase.from('barber_payments').insert({
+      ...form,
+      barbershop_id: barbershop?.id,
+      barber_id: modal.barber_id,
+    });
+    if (error) return toast.error(error.message);
+    toast.success('Pagamento registrado');
+    qc.invalidateQueries({ queryKey: ['contas_pagar_full'] });
+    setModal(null);
+  };
+
   const remove = async (id: string) => {
+    if (id.includes('-')) return toast.error('Contas automáticas não podem ser excluídas por aqui.');
     if (!confirm('Excluir esta conta permanentemente?')) return;
     
     toast.promise(supabase.from('contas_pagar').delete().eq('id', id), {
       loading: 'Excluindo...',
       success: () => {
-        qc.invalidateQueries({ queryKey: ['contas_pagar'] });
+        qc.invalidateQueries({ queryKey: ['contas_pagar_full'] });
         return 'Conta excluída';
       },
       error: 'Erro ao excluir'
@@ -259,15 +360,18 @@ function ContasPagar() {
           const venc = parseISO(c.vencimento);
           const atrasada = c.status === 'pendente' && isPast(venc) && !isToday(venc);
           return (
-            <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-hover-soft transition-colors">
+            <div key={c.id} className={`flex items-center gap-3 px-4 py-3 hover:bg-hover-soft transition-colors ${c.is_virtual ? 'bg-ink-900/30' : ''}`}>
               <StatusIcon status={atrasada ? 'vencido' : c.status} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{c.descricao}</div>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  {c.descricao}
+                  {c.is_virtual && <span className="text-[8px] bg-ink-800 text-ink-400 px-1 rounded uppercase font-bold tracking-widest border border-ink-700">Auto</span>}
+                </div>
                 <div className="text-xs text-muted flex gap-2 mt-0.5">
                   <span className="capitalize">{c.categoria}</span>
                   <span>·</span>
                   <span className={atrasada ? 'text-red-400' : ''}>
-                    {atrasada ? 'Venceu em ' : 'Vence em '}
+                    {c.status === 'pago' ? 'Pago em ' : (atrasada ? 'Venceu em ' : 'Vence em ')}
                     {format(venc, 'dd/MM/yyyy')}
                   </span>
                 </div>
@@ -276,18 +380,22 @@ function ContasPagar() {
               <div className="flex gap-1 shrink-0">
                 {c.status === 'pendente' && (
                   <button onClick={() => marcarPago(c)} className="btn-ghost px-2 py-1.5 text-xs text-emerald-400 gap-1">
-                    <CheckCircle2 size={13} /> Pagar
+                    <CheckCircle2 size={13} /> {c.id.startsWith('due-') ? 'Pagar' : 'Pagar'}
                   </button>
                 )}
-                <button onClick={() => setModal(c)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
-                <button onClick={() => remove(c.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>
+                {!c.is_virtual && <button onClick={() => setModal(c)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>}
+                {!c.is_virtual && <button onClick={() => remove(c.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>}
               </div>
             </div>
           );
         })}
       </div>
-      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova conta a pagar' : 'Editar conta'}>
-        {modal !== null && <ContaForm initial={modal === 'new' ? null : modal} categorias={CAT_PAGAR} onSave={save} tipo="pagar" />}
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova conta a pagar' : (modal?.type === 'commission_pay' ? `Pagar Comissão — ${modal.nome}` : 'Editar conta')}>
+        {modal === 'new' || (modal && !modal.type) ? (
+          <ContaForm initial={modal === 'new' ? null : modal} categorias={CAT_PAGAR} onSave={save} tipo="pagar" />
+        ) : modal?.type === 'commission_pay' ? (
+          <BarberPayForm saldo={modal.valor} onSave={handlePayCommission} />
+        ) : null}
       </Modal>
     </>
   );

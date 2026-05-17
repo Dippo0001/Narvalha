@@ -322,7 +322,7 @@ function ContasPagar() {
   };
 
   const remove = async (id: string) => {
-    if (id.includes('-')) return toast.error('Contas automáticas não podem ser excluídas por aqui.');
+    if (id.startsWith('due-') || id.startsWith('pay-')) return toast.error('Contas automáticas não podem ser excluídas por aqui.');
     if (!confirm('Excluir esta conta permanentemente?')) return;
     
     toast.promise(supabase.from('contas_pagar').delete().eq('id', id), {

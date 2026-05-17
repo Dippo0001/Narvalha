@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet, 
   Settings, LogOut, Sun, Moon, Store, ShoppingCart, 
-  ShieldCheck, Menu, X 
+  Menu, X
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
@@ -22,7 +22,7 @@ const nav = [
 ];
 
 export default function Layout() {
-  const { barbershop, signOut, isAdmin } = useAuth();
+  const { barbershop, signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -88,21 +88,6 @@ export default function Layout() {
               {label}
             </NavLink>
           ))}
-          {isAdmin && (
-            <NavLink
-              to="/saas-admin"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-3 rounded-md text-sm transition-colors mt-6 border-t border-border pt-6 ${
-                  isActive ? 'bg-hover-soft font-medium text-amber-500' : 'text-amber-500/70 hover:bg-hover-soft'
-                }`
-              }
-              style={({ isActive }: any) => isActive ? { background: 'var(--bg-hover)' } : {}}
-            >
-              <ShieldCheck size={18} strokeWidth={1.75} />
-              Admin SaaS
-            </NavLink>
-          )}
         </nav>
 
         {/* Sidebar Footer */}

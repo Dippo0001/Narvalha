@@ -56,7 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refresh = async () => {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    // Invalid/expired refresh token — clear stale session silently
+    if (error?.message?.includes('Refresh Token')) {
+      await supabase.auth.signOut();
+      setSession(null); setMember(null); setBarbershop(null);
+      setLoading(false);
+      return;
+    }
     setSession(data.session);
     // Skip member loading during recovery — user only needs to set a new password
     if (data.session && !recoveryRef.current) await loadMember(data.session.user.id);
@@ -66,6 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'TOKEN_REFRESHED' && !s) {
+        // Token refresh failed — session is gone, force clean state
+        setSession(null); setMember(null); setBarbershop(null);
+        setLoading(false);
+        return;
+      }
       if (event === 'PASSWORD_RECOVERY') {
         recoveryRef.current = true;
         setIsRecovery(true);

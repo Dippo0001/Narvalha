@@ -4,6 +4,7 @@ import { CashProvider } from './lib/cash-context';
 import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import Onboarding from './pages/Onboarding';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

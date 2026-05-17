@@ -48,6 +48,9 @@ export default function Login() {
             <button className="btn-primary w-full" disabled={loading}>
               {loading ? 'Entrando…' : 'Entrar'}
             </button>
+            <div className="text-center">
+              <Link to="/forgot-password" className="text-xs text-ink-500 hover:text-ink-100 hover:underline">Esqueceu sua senha?</Link>
+            </div>
             <p className="text-xs text-center text-ink-500">
               Não tem conta? <Link to="/signup" className="text-ink-100 hover:underline">Criar agora</Link>
             </p>

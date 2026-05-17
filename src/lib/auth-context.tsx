@@ -19,7 +19,7 @@ const Ctx = createContext<AuthState>({
   refresh: async () => {}, signOut: async () => {},
 });
 
-const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'Diarleyduarte17@gmail.com'];
+const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'diarleyduarte17@gmail.com'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const recoveryRef = useRef(isRecoveryFlow);
   const [isRecovery, setIsRecovery] = useState(isRecoveryFlow);
 
-  const isAdmin = !!session?.user?.email && ADMIN_EMAILS.includes(session.user.email);
+  const isAdmin = !!session?.user?.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
 
   const loadMember = async (userId: string) => {
     const { data: m } = await supabase

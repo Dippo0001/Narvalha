@@ -449,16 +449,6 @@ export default function PDV() {
     );
   }
 
-  const { data: pixMethod } = useQuery({
-    queryKey: ['pix-method', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('payment_methods').select('*')
-        .eq('barbershop_id', barbershop!.id).eq('tipo', 'pix').eq('ativo', true).maybeSingle();
-      return data;
-    }
-  });
-
   /* ── PAGAMENTO ────────────────────────────────────────────────── */
   if (step === 'pagamento') return (
     <div className="p-8 max-w-xl mx-auto">

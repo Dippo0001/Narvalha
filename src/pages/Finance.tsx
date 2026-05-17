@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
@@ -10,7 +10,11 @@ import {
   addDays, setDate, setDay, nextDay, startOfMonth, endOfMonth,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2, CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { 
+  TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2, 
+  CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, 
+  Clock, Camera, Copy, Smartphone 
+} from 'lucide-react';
 import { toast } from 'sonner';
 import type { CashMovement } from '../types/db';
 

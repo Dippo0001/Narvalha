@@ -6,13 +6,14 @@ import { formatBRL } from '../lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Store, Users, CreditCard, TrendingUp, ShieldAlert,
-  CheckCircle2, XCircle, Clock, Search, X, ChevronRight,
-  Activity, LayoutDashboard, LogOut,
+  Store, Users, TrendingUp, ShieldAlert,
+  CheckCircle2, Clock, Search, X, ChevronRight,
+  Activity, LayoutDashboard, LogOut, FlaskConical, ExternalLink,
 } from 'lucide-react';
+import { SIM_SHOP_KEY } from '../lib/auth-context';
 import { toast } from 'sonner';
 
-type Tab = 'overview' | 'shops' | 'activity';
+type Tab = 'overview' | 'shops' | 'activity' | 'simulation';
 
 const PLAN_PRICE: Record<string, number> = { silver: 79, gold: 129, platinum: 199 };
 const PLAN_LABEL: Record<string, string> = { trial: 'Trial', silver: 'Prata', gold: 'Ouro', platinum: 'Platina' };
@@ -104,9 +105,10 @@ export default function SaaSAdmin() {
       {/* Tab nav */}
       <nav className="border-b border-ink-900 px-6 flex gap-1">
         {([
-          { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
-          { id: 'shops', label: 'Barbearias', icon: Store },
-          { id: 'activity', label: 'Atividade', icon: Activity },
+          { id: 'overview',    label: 'Visão Geral',  icon: LayoutDashboard },
+          { id: 'shops',       label: 'Barbearias',   icon: Store },
+          { id: 'activity',    label: 'Atividade',    icon: Activity },
+          { id: 'simulation',  label: 'Simulação',    icon: FlaskConical },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -328,6 +330,77 @@ export default function SaaSAdmin() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── SIMULAÇÃO ── */}
+        {tab === 'simulation' && (
+          <div className="space-y-6 max-w-3xl">
+            <div className="card p-5 border border-amber-900/40 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+                <FlaskConical size={16} /> Como funciona
+              </div>
+              <p className="text-sm text-ink-400">
+                Selecione uma barbearia e clique em <strong className="text-ink-200">Simular</strong>.
+                Você será redirecionado para o app com acesso total como <strong className="text-ink-200">owner</strong> daquela loja —
+                podendo testar caixa, PDV, agenda, multi-loja e qualquer funcionalidade.
+                Um banner laranja indica o modo simulação. Para sair, clique em <em>Sair da simulação</em> no banner.
+              </p>
+            </div>
+
+            {/* Plan quick-edit + simulate */}
+            <div className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-ink-900 text-xs text-ink-500 uppercase tracking-wide">
+                Barbearias — trocar plano e simular
+              </div>
+              <div className="divide-y divide-ink-900">
+                {shops.map((shop: any) => (
+                  <div key={shop.id} className="px-5 py-4 flex items-center gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{shop.nome}</div>
+                      <div className="text-xs text-ink-500">/{shop.slug}</div>
+                    </div>
+
+                    {/* Inline plan switcher */}
+                    <select
+                      value={shop.plan}
+                      onChange={e => updateField(shop.id, 'plan', e.target.value)}
+                      className="input text-xs py-1.5 w-36"
+                    >
+                      <option value="trial">Trial</option>
+                      <option value="silver">Prata</option>
+                      <option value="gold">Ouro</option>
+                      <option value="platinum">Platina</option>
+                    </select>
+
+                    <select
+                      value={shop.subscription_status}
+                      onChange={e => updateField(shop.id, 'subscription_status', e.target.value)}
+                      className="input text-xs py-1.5 w-36"
+                    >
+                      <option value="trialing">Trial</option>
+                      <option value="active">Ativa</option>
+                      <option value="past_due">Inadimplente</option>
+                      <option value="canceled">Cancelada</option>
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        localStorage.setItem(SIM_SHOP_KEY, shop.id);
+                        window.open('https://narvalha.com.br', '_blank');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors shrink-0"
+                    >
+                      <FlaskConical size={13} /> Simular
+                      <ExternalLink size={11} className="opacity-60" />
+                    </button>
+                  </div>
+                ))}
+                {shops.length === 0 && (
+                  <div className="p-8 text-center text-ink-500 text-sm">Nenhuma barbearia.</div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

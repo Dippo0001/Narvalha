@@ -168,19 +168,19 @@ function Pricing() {
       features: ['Até 2 barbeiros', '10 serviços e 10 produtos', 'Agenda + PDV', 'Contas a pagar/receber', 'Suporte 5x2'],
     },
     {
-      id: 'gold',
-      name: 'Ouro',
-      price: '49',
-      cents: '90',
-      popular: true,
-      features: ['Até 5 barbeiros', '20 serviços e 20 produtos', 'Tudo do Prata', 'Módulo financeiro completo', 'Fidelidade automática'],
-    },
-    {
       id: 'platinum',
       name: 'Platina',
       price: '59',
       cents: '90',
+      popular: true,
       features: ['Barbeiros ilimitados', 'Serviços/produtos ilimitados', 'Tudo do Ouro', 'Módulo de promoções', 'Multi-loja (matriz + filiais)'],
+    },
+    {
+      id: 'gold',
+      name: 'Ouro',
+      price: '49',
+      cents: '90',
+      features: ['Até 5 barbeiros', '20 serviços e 20 produtos', 'Tudo do Prata', 'Módulo financeiro completo', 'Fidelidade automática'],
     },
   ];
 

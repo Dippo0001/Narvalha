@@ -9,11 +9,11 @@ import {
   Store, Users, TrendingUp, ShieldAlert,
   CheckCircle2, Clock, Search, X, ChevronRight,
   Activity, LayoutDashboard, LogOut, FlaskConical, ExternalLink,
+  RotateCcw, Trash2,
 } from 'lucide-react';
-import { SIM_SHOP_KEY } from '../lib/auth-context';
 import { toast } from 'sonner';
 
-type Tab = 'overview' | 'shops' | 'activity' | 'simulation';
+type Tab = 'overview' | 'shops' | 'activity' | 'test';
 
 const PLAN_PRICE: Record<string, number> = { silver: 79, gold: 129, platinum: 199 };
 const PLAN_LABEL: Record<string, string> = { trial: 'Trial', silver: 'Prata', gold: 'Ouro', platinum: 'Platina' };
@@ -64,15 +64,16 @@ export default function SaaSAdmin() {
     </div>
   );
 
-  // --- Metrics ---
-  const total = shops.length;
-  const active = shops.filter((s: any) => s.subscription_status === 'active');
-  const trialing = shops.filter((s: any) => s.subscription_status === 'trialing');
-  const overdue = shops.filter((s: any) => ['past_due', 'canceled'].includes(s.subscription_status));
+  // --- Metrics (exclude demo/test shops) ---
+  const realShops = shops.filter((s: any) => !s.is_demo);
+  const total = realShops.length;
+  const active = realShops.filter((s: any) => s.subscription_status === 'active');
+  const trialing = realShops.filter((s: any) => s.subscription_status === 'trialing');
+  const overdue = realShops.filter((s: any) => ['past_due', 'canceled'].includes(s.subscription_status));
   const mrr = active.reduce((sum: number, s: any) => sum + (PLAN_PRICE[s.plan] || 0), 0);
 
-  // --- Filtered list ---
-  const filtered = shops.filter((s: any) => {
+  // --- Filtered list (exclude demo shops from main list) ---
+  const filtered = realShops.filter((s: any) => {
     const matchSearch = !search ||
       s.nome?.toLowerCase().includes(search.toLowerCase()) ||
       s.slug?.toLowerCase().includes(search.toLowerCase());
@@ -105,10 +106,10 @@ export default function SaaSAdmin() {
       {/* Tab nav */}
       <nav className="border-b border-ink-900 px-6 flex gap-1">
         {([
-          { id: 'overview',    label: 'Visão Geral',  icon: LayoutDashboard },
-          { id: 'shops',       label: 'Barbearias',   icon: Store },
-          { id: 'activity',    label: 'Atividade',    icon: Activity },
-          { id: 'simulation',  label: 'Simulação',    icon: FlaskConical },
+          { id: 'overview', label: 'Visão Geral',  icon: LayoutDashboard },
+          { id: 'shops',    label: 'Barbearias',   icon: Store },
+          { id: 'activity', label: 'Atividade',    icon: Activity },
+          { id: 'test',     label: 'Conta Teste',  icon: FlaskConical },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -148,7 +149,7 @@ export default function SaaSAdmin() {
               <div className="card p-5 space-y-3">
                 <div className="text-xs text-ink-500 uppercase tracking-wide">Distribuição por plano</div>
                 {['trial', 'silver', 'gold', 'platinum'].map(plan => {
-                  const count = shops.filter((s: any) => s.plan === plan).length;
+                  const count = realShops.filter((s: any) => s.plan === plan).length;
                   const pct = total ? Math.round((count / total) * 100) : 0;
                   return (
                     <div key={plan} className="space-y-1">
@@ -333,83 +334,15 @@ export default function SaaSAdmin() {
           </div>
         )}
 
-        {/* ── SIMULAÇÃO ── */}
-        {tab === 'simulation' && (
-          <div className="space-y-6 max-w-3xl">
-            <div className="card p-5 border border-amber-900/40 space-y-2">
-              <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
-                <FlaskConical size={16} /> Como funciona
-              </div>
-              <p className="text-sm text-ink-400">
-                Selecione uma barbearia e clique em <strong className="text-ink-200">Simular</strong>.
-                Você será redirecionado para o app com acesso total como <strong className="text-ink-200">owner</strong> daquela loja —
-                podendo testar caixa, PDV, agenda, multi-loja e qualquer funcionalidade.
-                Um banner laranja indica o modo simulação. Para sair, clique em <em>Sair da simulação</em> no banner.
-              </p>
-            </div>
-
-            {/* Plan quick-edit + simulate */}
-            <div className="card overflow-hidden">
-              <div className="px-5 py-3 border-b border-ink-900 text-xs text-ink-500 uppercase tracking-wide">
-                Barbearias — trocar plano e simular
-              </div>
-              <div className="divide-y divide-ink-900">
-                {shops.map((shop: any) => (
-                  <div key={shop.id} className="px-5 py-4 flex items-center gap-4 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{shop.nome}</div>
-                      <div className="text-xs text-ink-500">/{shop.slug}</div>
-                    </div>
-
-                    {/* Inline plan switcher */}
-                    <select
-                      value={shop.plan}
-                      onChange={e => updateField(shop.id, 'plan', e.target.value)}
-                      className="input text-xs py-1.5 w-36"
-                    >
-                      <option value="trial">Trial</option>
-                      <option value="silver">Prata</option>
-                      <option value="gold">Ouro</option>
-                      <option value="platinum">Platina</option>
-                    </select>
-
-                    <select
-                      value={shop.subscription_status}
-                      onChange={e => updateField(shop.id, 'subscription_status', e.target.value)}
-                      className="input text-xs py-1.5 w-36"
-                    >
-                      <option value="trialing">Trial</option>
-                      <option value="active">Ativa</option>
-                      <option value="past_due">Inadimplente</option>
-                      <option value="canceled">Cancelada</option>
-                    </select>
-
-                    <button
-                      onClick={() => {
-                        localStorage.setItem(SIM_SHOP_KEY, shop.id);
-                        window.open('https://narvalha.com.br', '_blank');
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors shrink-0"
-                    >
-                      <FlaskConical size={13} /> Simular
-                      <ExternalLink size={11} className="opacity-60" />
-                    </button>
-                  </div>
-                ))}
-                {shops.length === 0 && (
-                  <div className="p-8 text-center text-ink-500 text-sm">Nenhuma barbearia.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ── CONTA TESTE ── */}
+        {tab === 'test' && <TestAccountTab shops={shops} qc={qc} />}
 
         {/* ── ATIVIDADE ── */}
         {tab === 'activity' && (
           <div className="space-y-4 max-w-2xl">
             <div className="text-xs text-ink-500">Últimos cadastros e eventos recentes</div>
             <div className="card divide-y divide-ink-900">
-              {shops.slice(0, 30).map((shop: any) => (
+              {realShops.slice(0, 30).map((shop: any) => (
                 <div key={shop.id} className="px-5 py-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-ink-800 flex items-center justify-center text-xs font-medium text-ink-300 shrink-0">
@@ -472,6 +405,131 @@ function StatusDot({ status }: { status: string }) {
     incomplete: 'bg-ink-600',
   };
   return <span className={`w-2 h-2 rounded-full shrink-0 ${color[status] ?? 'bg-ink-600'}`} title={STATUS_LABEL[status]} />;
+}
+
+function TestAccountTab({ shops, qc }: { shops: any[]; qc: any }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const demoShop = shops.find((s: any) => s.is_demo);
+
+  const enter = async () => {
+    setBusy('enter');
+    const { data, error } = await supabase.rpc('enter_test_mode');
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ['admin-shops'] });
+    toast.success('Conta teste pronta!');
+    window.open('https://narvalha.com.br', '_blank');
+  };
+
+  const reset = async () => {
+    if (!demoShop) return;
+    if (!confirm('Apagar todos os clientes, agendamentos, vendas e movimentos de caixa da conta teste? Os serviços/produtos/barbeiros são mantidos.')) return;
+    setBusy('reset');
+    const { error } = await supabase.rpc('reset_test_mode', { p_shop_id: demoShop.id });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success('Dados resetados.');
+  };
+
+  const wipe = async () => {
+    if (!demoShop) return;
+    if (!confirm('Apagar COMPLETAMENTE a conta teste (incluindo serviços, produtos e barbeiros)? Você poderá criar uma nova depois.')) return;
+    setBusy('wipe');
+    const { error } = await supabase.rpc('wipe_test_mode', { p_shop_id: demoShop.id });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ['admin-shops'] });
+    toast.success('Conta teste removida.');
+  };
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className="card p-5 border border-amber-900/40 space-y-2">
+        <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+          <FlaskConical size={16} /> Sobre a conta teste
+        </div>
+        <p className="text-sm text-ink-400 leading-relaxed">
+          Uma barbearia isolada vinculada ao seu email de admin, marcada como teste e <strong className="text-ink-200">excluída de todas as métricas</strong> (MRR, total de lojas, etc.).
+          Já vem como <strong className="text-ink-200">Platina ativa</strong> — pode testar multi-loja, PDV, agenda, e qualquer feature sem afetar dados reais.
+        </p>
+        <p className="text-xs text-ink-500">
+          Você acessa pelo seletor de lojas em <code className="text-ink-300">narvalha.com.br</code>.
+          Use o mesmo email/senha do admin para entrar.
+        </p>
+      </div>
+
+      {!demoShop && (
+        <button
+          onClick={enter}
+          disabled={busy === 'enter'}
+          className="w-full card p-5 hover:bg-ink-900/50 transition-colors flex items-center justify-between group"
+        >
+          <div className="text-left">
+            <div className="text-sm font-medium text-ink-100 flex items-center gap-2">
+              <FlaskConical size={15} className="text-amber-400" />
+              Criar conta teste
+            </div>
+            <div className="text-xs text-ink-500 mt-0.5">
+              Cria uma barbearia teste vinculada ao seu admin
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-ink-600 group-hover:text-ink-300 transition-colors" />
+        </button>
+      )}
+
+      {demoShop && (
+        <>
+          <div className="card p-5 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="text-xs text-ink-500 uppercase tracking-wide">Conta teste ativa</div>
+                <div className="text-base font-semibold mt-1">{demoShop.nome}</div>
+                <div className="text-xs text-ink-500">/{demoShop.slug}</div>
+              </div>
+              <a
+                href="https://narvalha.com.br"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+              >
+                Abrir app <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={reset}
+              disabled={busy === 'reset'}
+              className="card p-4 hover:bg-ink-900/50 transition-colors text-left space-y-1 disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
+                <RotateCcw size={14} className="text-amber-400" />
+                {busy === 'reset' ? 'Resetando…' : 'Resetar dados'}
+              </div>
+              <div className="text-xs text-ink-500">
+                Apaga clientes, vendas, agenda e caixa. Mantém serviços e produtos.
+              </div>
+            </button>
+
+            <button
+              onClick={wipe}
+              disabled={busy === 'wipe'}
+              className="card p-4 hover:bg-red-900/10 hover:border-red-900/40 transition-colors text-left space-y-1 disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
+                <Trash2 size={14} className="text-red-400" />
+                {busy === 'wipe' ? 'Removendo…' : 'Remover conta teste'}
+              </div>
+              <div className="text-xs text-ink-500">
+                Apaga tudo. Você pode criar uma nova depois.
+              </div>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function PlanBadge({ plan }: { plan: string }) {

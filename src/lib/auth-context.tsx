@@ -4,7 +4,6 @@ import type { Session } from '@supabase/supabase-js';
 import type { Barbershop, Member } from '../types/db';
 
 const ACTIVE_STORE_KEY = 'narvalha_active_barbershop_id';
-export const SIM_SHOP_KEY = 'narvalha_sim_shop_id';
 
 interface AuthState {
   session: Session | null;
@@ -14,18 +13,16 @@ interface AuthState {
   barbershops: Barbershop[];
   isAdmin: boolean;
   isRecovery: boolean;
-  isSimulating: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
   setActiveBarbershop: (id: string) => void;
-  exitSimulation: () => void;
 }
 
 const Ctx = createContext<AuthState>({
   session: null, loading: true, member: null, barbershop: null, barbershops: [],
-  isAdmin: false, isRecovery: false, isSimulating: false,
+  isAdmin: false, isRecovery: false,
   refresh: async () => {}, signOut: async () => {},
-  setActiveBarbershop: () => {}, exitSimulation: () => {},
+  setActiveBarbershop: () => {},
 });
 
 const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'diarleyduarte17@gmail.com'];
@@ -36,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<Member | null>(null);
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
   const [barbershops, setBarbershops] = useState<Barbershop[]>([]);
-  const [isSimulating, setIsSimulating] = useState(!!localStorage.getItem(SIM_SHOP_KEY));
 
   // isRecoveryFlow is captured at module load time (supabase.ts import),
   // before Supabase processes and clears the URL hash — avoids race condition
@@ -45,22 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = !!session?.user?.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
 
-  const loadMember = async (userId: string, userIsAdmin?: boolean) => {
-    // Simulation mode: admin bypasses normal membership — loads target shop directly
-    const simId = localStorage.getItem(SIM_SHOP_KEY);
-    if (simId && userIsAdmin) {
-      const { data: simShop } = await supabase.from('barbershops').select('*').eq('id', simId).maybeSingle();
-      if (simShop) {
-        setBarbershop(simShop as Barbershop);
-        setBarbershops([simShop as Barbershop]);
-        // Fake owner member for full access
-        setMember({ id: 'sim', user_id: userId, barbershop_id: simId, role: 'owner', ativo: true });
-        setIsSimulating(true);
-        return;
-      }
-    }
-
-    // Normal flow: load all barbershops the user is a member of
+  const loadMember = async (userId: string) => {
     const { data: members } = await supabase
       .from('members')
       .select('*, barbershops(*)')
@@ -85,36 +66,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMember(activeMember as Member);
   };
 
-  const exitSimulation = () => {
-    localStorage.removeItem(SIM_SHOP_KEY);
-    setIsSimulating(false);
-    setMember(null);
-    setBarbershop(null);
-    setBarbershops([]);
-  };
-
   const setActiveBarbershop = (id: string) => {
     const shop = barbershops.find(b => b.id === id);
     if (!shop) return;
     localStorage.setItem(ACTIVE_STORE_KEY, id);
     setBarbershop(shop);
-    // Update member for the newly selected barbershop — will re-query
     if (session) loadMember(session.user.id);
   };
 
   const refresh = async () => {
     const { data, error } = await supabase.auth.getSession();
-    // Invalid/expired refresh token — clear stale session silently
     if (error?.message?.includes('Refresh Token')) {
       await supabase.auth.signOut();
       setSession(null); setMember(null); setBarbershop(null); setBarbershops([]);
       setLoading(false);
       return;
     }
-    const admin = !!data.session?.user?.email && ADMIN_EMAILS.includes(data.session.user.email.toLowerCase());
     setSession(data.session);
-    // Skip member loading during recovery — user only needs to set a new password
-    if (data.session && !recoveryRef.current) await loadMember(data.session.user.id, admin);
+    if (data.session && !recoveryRef.current) await loadMember(data.session.user.id);
     setLoading(false);
   };
 
@@ -137,10 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsRecovery(false);
       setSession(s);
       (async () => {
-        if (s) {
-          const admin = ADMIN_EMAILS.includes((s.user.email ?? '').toLowerCase());
-          await loadMember(s.user.id, admin);
-        } else { setMember(null); setBarbershop(null); setBarbershops([]); }
+        if (s) await loadMember(s.user.id);
+        else { setMember(null); setBarbershop(null); setBarbershops([]); }
         setLoading(false);
       })();
     });
@@ -151,14 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setMember(null); setBarbershop(null); setBarbershops([]);
     localStorage.removeItem(ACTIVE_STORE_KEY);
-    localStorage.removeItem(SIM_SHOP_KEY);
-    setIsSimulating(false);
     recoveryRef.current = false;
     setIsRecovery(false);
   };
 
   return (
-    <Ctx.Provider value={{ session, loading, member, barbershop, barbershops, isAdmin, isRecovery, isSimulating, refresh, signOut, setActiveBarbershop, exitSimulation }}>
+    <Ctx.Provider value={{ session, loading, member, barbershop, barbershops, isAdmin, isRecovery, refresh, signOut, setActiveBarbershop }}>
       {children}
     </Ctx.Provider>
   );

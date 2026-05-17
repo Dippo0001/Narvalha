@@ -106,7 +106,7 @@ function StoreSwitcher({ closeMenu }: { closeMenu: () => void }) {
 }
 
 export default function Layout() {
-  const { signOut } = useAuth();
+  const { signOut, isSimulating, exitSimulation, barbershop } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -186,6 +186,17 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-auto flex flex-col w-full pt-16 lg:pt-0">
+        {isSimulating && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-between text-xs font-semibold shrink-0">
+            <span>🔬 MODO SIMULAÇÃO — {barbershop?.nome} (acesso total como owner)</span>
+            <button
+              onClick={() => { exitSimulation(); window.location.href = 'https://admin.narvalha.com.br'; }}
+              className="underline hover:no-underline"
+            >
+              Sair da simulação
+            </button>
+          </div>
+        )}
         <SubscriptionAlerts />
         <div className="flex-1 overflow-auto">
           <Outlet />

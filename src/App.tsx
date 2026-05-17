@@ -26,6 +26,7 @@ import CookieBanner from './components/CookieBanner';
 
 function AppRoutes() {
   const { session, loading, member, barbershop, isAdmin } = useAuth();
+  const isAdminSubdomain = window.location.hostname === 'admin.narvalha.com.br';
 
   if (loading) {
     return (
@@ -35,6 +36,25 @@ function AppRoutes() {
     );
   }
 
+  // Admin Subdomain Logic
+  if (isAdminSubdomain) {
+    if (!session || !isAdmin) {
+      return (
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      );
+    }
+    return (
+      <Routes>
+        <Route path="/" element={<SaaSAdmin />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // Main App Logic
   if (!session) {
     return (
       <Routes>
@@ -91,7 +111,6 @@ function AppRoutes() {
           <Route path="/pdv" element={<PDV />} />
           <Route path="/financeiro" element={<Finance />} />
           <Route path="/configuracoes" element={<Settings />} />
-          {isAdmin && <Route path="/saas-admin" element={<SaaSAdmin />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

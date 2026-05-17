@@ -13,7 +13,7 @@ export default function AdminLogin() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) toast.error('Credenciais inválidas ou sem permissão de acesso.');
+    if (error) toast.error(error.message);
   };
 
   return (

@@ -3,6 +3,7 @@ import { useAuth } from './lib/auth-context';
 import { CashProvider } from './lib/cash-context';
 import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import UpdatePassword from './pages/UpdatePassword';
@@ -27,7 +28,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import CookieBanner from './components/CookieBanner';
 
 function AppRoutes() {
-  const { session, loading, member, barbershop, isAdmin } = useAuth();
+  const { session, loading, member, barbershop, isAdmin, isRecovery } = useAuth();
   const isAdminSubdomain = window.location.hostname === 'admin.narvalha.com.br';
 
   if (loading) {
@@ -38,12 +39,21 @@ function AppRoutes() {
     );
   }
 
+  // Password recovery flow — must come before any other routing logic
+  if (isRecovery) {
+    return (
+      <Routes>
+        <Route path="*" element={<UpdatePassword />} />
+      </Routes>
+    );
+  }
+
   // Admin Subdomain Logic
   if (isAdminSubdomain) {
     if (!session || !isAdmin) {
       return (
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<AdminLogin />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       );

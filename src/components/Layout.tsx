@@ -34,7 +34,12 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-ink-950 text-ink-50 font-sans">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 border-b border-border bg-ink-950/80 backdrop-blur-md z-40 px-4 flex items-center justify-between">
-        <div className="logo text-2xl text-ink-50">Navalha</div>
+        <button 
+          onClick={() => navigate('/')} 
+          className="logo text-2xl text-ink-50 hover:opacity-80 transition-opacity"
+        >
+          Navalha
+        </button>
         <button 
           onClick={toggleMenu}
           className="p-2 text-ink-500 hover:text-ink-50 transition-colors"
@@ -46,15 +51,19 @@ export default function Layout() {
       {/* Sidebar / Mobile Menu Overlay */}
       <aside className={`
         fixed inset-0 z-50 transform lg:relative lg:translate-x-0 lg:z-auto
-        w-full sm:w-60 bg-ink-950 border-r border-border flex flex-col transition-transform duration-300 ease-in-out
-        ${isMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        w-full sm:w-60 bg-ink-950 border-l lg:border-l-0 lg:border-r border-border flex flex-col transition-transform duration-300 ease-in-out
+        ${isMenuOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        lg:left-0 sm:right-0 lg:right-auto
       `}>
         {/* Sidebar Header */}
         <div className="px-6 py-6 border-b border-border flex items-center justify-between">
-          <div>
+          <button 
+            onClick={() => { navigate('/'); closeMenu(); }}
+            className="text-left hover:opacity-80 transition-opacity"
+          >
             <div className="logo text-3xl">Navalha</div>
             {barbershop && <div className="text-xs text-ink-500 mt-0.5 truncate">{barbershop.nome}</div>}
-          </div>
+          </button>
           <button onClick={closeMenu} className="lg:hidden text-ink-500 hover:text-ink-50">
             <X size={24} />
           </button>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { useCash } from '../lib/cash-context';
@@ -8,13 +9,23 @@ import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   TrendingUp, Calendar, DollarSign, Award,
-  ArrowDownCircle, Receipt, Users,
+  ArrowDownCircle, Receipt, Users, Store, ShoppingCart, Package, Wallet
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { barbershop } = useAuth();
   const { summary: cashSummary, session } = useCash();
+  const navigate = useNavigate();
   const bid = barbershop?.id;
+
+  const quickActions = [
+    { label: 'Caixa', icon: Store, to: '/caixa', color: 'bg-emerald-500/10 text-emerald-500' },
+    { label: 'PDV', icon: ShoppingCart, to: '/pdv', color: 'bg-amber-500/10 text-amber-500' },
+    { label: 'Agenda', icon: Calendar, to: '/agenda', color: 'bg-blue-500/10 text-blue-500' },
+    { label: 'Clientes', icon: Users, to: '/clientes', color: 'bg-purple-500/10 text-purple-500' },
+    { label: 'Catálogo', icon: Package, to: '/catalogo', color: 'bg-pink-500/10 text-pink-500' },
+    { label: 'Financeiro', icon: Wallet, to: '/financeiro', color: 'bg-orange-500/10 text-orange-500' },
+  ];
 
   const { data: today } = useQuery({
     queryKey: ['dashboard-today', bid],
@@ -216,6 +227,25 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Quick Access */}
+      <div className="mt-8">
+        <h3 className="text-sm font-bold text-ink-500 uppercase tracking-widest mb-4 ml-1">Acesso Rápido</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {quickActions.map((action) => (
+            <button
+              key={action.to}
+              onClick={() => navigate(action.to)}
+              className="card p-4 flex flex-col items-center justify-center gap-3 hover:bg-hover-soft transition-all group border-transparent hover:border-border"
+            >
+              <div className={`p-3 rounded-xl ${action.color} group-hover:scale-110 transition-transform`}>
+                <action.icon size={24} />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-tighter text-ink-300">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

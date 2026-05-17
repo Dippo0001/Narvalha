@@ -21,6 +21,7 @@ export interface Barbershop {
   paid_until: string | null;
   fidelidade_meta: number;
   caixa_as_cegas: boolean;
+  parent_barbershop_id: string | null;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {

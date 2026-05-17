@@ -24,6 +24,7 @@ import CaixaFechar from './pages/CaixaFechar';
 import CaixaHistorico from './pages/CaixaHistorico';
 import SubscriptionBlocked from './pages/SubscriptionBlocked';
 import SaaSAdmin from './pages/SaaSAdmin';
+import NovaFilial from './pages/NovaFilial';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import CookieBanner from './components/CookieBanner';
 
@@ -125,6 +126,7 @@ function AppRoutes() {
           <Route path="/pdv" element={<PDV />} />
           <Route path="/financeiro" element={<Finance />} />
           <Route path="/configuracoes" element={<Settings />} />
+          <Route path="/nova-filial" element={<NovaFilial />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

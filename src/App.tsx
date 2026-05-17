@@ -25,6 +25,7 @@ import CaixaHistorico from './pages/CaixaHistorico';
 import SubscriptionBlocked from './pages/SubscriptionBlocked';
 import SaaSAdmin from './pages/SaaSAdmin';
 import NovaFilial from './pages/NovaFilial';
+import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import CookieBanner from './components/CookieBanner';
 
@@ -71,12 +72,13 @@ function AppRoutes() {
   if (!session) {
     return (
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/privacidade" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/update-password" element={<UpdatePassword />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }

@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from './supabase';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { supabase, isRecoveryFlow } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Barbershop, Member } from '../types/db';
 
@@ -9,22 +9,28 @@ interface AuthState {
   member: Member | null;
   barbershop: Barbershop | null;
   isAdmin: boolean;
+  isRecovery: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthState>({
-  session: null, loading: true, member: null, barbershop: null, isAdmin: false,
+  session: null, loading: true, member: null, barbershop: null, isAdmin: false, isRecovery: false,
   refresh: async () => {}, signOut: async () => {},
 });
 
-const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'Diarleyduarte17@gmail.com']; // Example
+const ADMIN_EMAILS = ['diarley@gmail.com', 'admin@narvalha.com.br', 'Diarleyduarte17@gmail.com'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<Member | null>(null);
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
+
+  // isRecoveryFlow is captured at module load time (supabase.ts import),
+  // before Supabase processes and clears the URL hash — avoids race condition
+  const recoveryRef = useRef(isRecoveryFlow);
+  const [isRecovery, setIsRecovery] = useState(isRecoveryFlow);
 
   const isAdmin = !!session?.user?.email && ADMIN_EMAILS.includes(session.user.email);
 
@@ -52,13 +58,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = async () => {
     const { data } = await supabase.auth.getSession();
     setSession(data.session);
-    if (data.session) await loadMember(data.session.user.id);
+    // Skip member loading during recovery — user only needs to set a new password
+    if (data.session && !recoveryRef.current) await loadMember(data.session.user.id);
     setLoading(false);
   };
 
   useEffect(() => {
     refresh();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryRef.current = true;
+        setIsRecovery(true);
+        setSession(s);
+        setLoading(false);
+        return;
+      }
+      recoveryRef.current = false;
+      setIsRecovery(false);
       setSession(s);
       (async () => {
         if (s) await loadMember(s.user.id);
@@ -72,10 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setMember(null); setBarbershop(null);
+    recoveryRef.current = false;
+    setIsRecovery(false);
   };
 
   return (
-    <Ctx.Provider value={{ session, loading, member, barbershop, isAdmin, refresh, signOut }}>
+    <Ctx.Provider value={{ session, loading, member, barbershop, isAdmin, isRecovery, refresh, signOut }}>
       {children}
     </Ctx.Provider>
   );

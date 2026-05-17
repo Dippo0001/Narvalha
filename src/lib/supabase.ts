@@ -1,12 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = (import.meta.env.VITE_SUPABASE_URL || 
-             import.meta.env.A_VITE_PUBLIC_SUPABASE_URL || 
+const url = (import.meta.env.VITE_SUPABASE_URL ||
+             import.meta.env.A_VITE_PUBLIC_SUPABASE_URL ||
              import.meta.env.A_SUPABASE_URL) as string;
 
-const key = (import.meta.env.VITE_SUPABASE_ANON_KEY || 
-             import.meta.env.A_VITE_PUBLIC_SUPABASE_ANON_KEY || 
+const key = (import.meta.env.VITE_SUPABASE_ANON_KEY ||
+             import.meta.env.A_VITE_PUBLIC_SUPABASE_ANON_KEY ||
              import.meta.env.A_SUPABASE_ANON_KEY) as string;
+
+// Captured here — at module load time — before Supabase processes and clears the URL hash
+export const isRecoveryFlow = window.location.hash.includes('type=recovery');
 
 // Initialize the client with silent settings where possible
 export const supabase = createClient(url, key, {

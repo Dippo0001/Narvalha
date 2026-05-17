@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
-import { Plus, CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
+import { Plus, CheckCircle2, CreditCard, Sparkles, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { maskPhone, isValidPhone } from '../lib/utils';
 import type { Barber } from '../types/db';
@@ -58,28 +58,31 @@ export default function Settings() {
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'plano' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Assinatura</button>
       </div>
       {tab === 'geral' && (
-        <form onSubmit={saveShop} className="card p-6 space-y-4 max-w-xl">
-          <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-          <div><label className="label">Slug</label><input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} /></div>
-          <div>
-            <label className="label">Telefone (Celular)</label>
-            <input 
-              className="input" 
-              value={telefone} 
-              onChange={(e) => setTelefone(maskPhone(e.target.value))} 
-              placeholder="(85) 98888-8888"
-            />
-          </div>
-          <div><label className="label">Endereço</label><input className="input" value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
-          <div>
-            <label className="label">Número de Cadeiras (Capacidade simultânea)</label>
-            <input className="input" type="number" min={1} value={numCadeiras} onChange={(e) => setNumCadeiras(+e.target.value)} />
-            <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
-          </div>
-          <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
+        <div className="space-y-6 max-w-xl">
+          <form onSubmit={saveShop} className="card p-6 space-y-4">
+            <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
+            <div><label className="label">Slug</label><input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} /></div>
+            <div>
+              <label className="label">Telefone (Celular)</label>
+              <input
+                className="input"
+                value={telefone}
+                onChange={(e) => setTelefone(maskPhone(e.target.value))}
+                placeholder="(85) 98888-8888"
+              />
+            </div>
+            <div><label className="label">Endereço</label><input className="input" value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
+            <div>
+              <label className="label">Número de Cadeiras (Capacidade simultânea)</label>
+              <input className="input" type="number" min={1} value={numCadeiras} onChange={(e) => setNumCadeiras(+e.target.value)} />
+              <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
+            </div>
+            <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
+            <button className="btn-primary">Salvar</button>
+          </form>
 
-          <button className="btn-primary">Salvar</button>
-        </form>
+          <ChangePasswordSection />
+        </div>
       )}
       {tab === 'regras' && (
         <form onSubmit={saveShop} className="card p-6 space-y-6 max-w-xl">
@@ -396,6 +399,76 @@ function BarbersTab({ qc }: any) {
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Novo barbeiro' : 'Editar barbeiro'}>
         <BarberForm initial={modal === 'new' ? null : modal} onSave={save} />
       </Modal>
+    </div>
+  );
+}
+
+function ChangePasswordSection() {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirm) return toast.error('As senhas não coincidem.');
+    if (newPassword.length < 8) return toast.error('A senha deve ter pelo menos 8 caracteres.');
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success('Senha alterada com sucesso!');
+    setNewPassword('');
+    setConfirm('');
+    setOpen(false);
+  };
+
+  return (
+    <div className="card p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <KeyRound size={16} className="text-ink-500" />
+          <span className="text-sm font-medium text-ink-100">Senha de acesso</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="text-xs text-ink-400 hover:text-ink-100 transition-colors"
+        >
+          {open ? 'Cancelar' : 'Alterar senha'}
+        </button>
+      </div>
+
+      {open && (
+        <form onSubmit={handleSubmit} className="space-y-3 pt-2 border-t border-ink-800">
+          <div>
+            <label className="label">Nova senha</label>
+            <input
+              className="input"
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              minLength={8}
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="label">Confirmar nova senha</label>
+            <input
+              className="input"
+              type="password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              minLength={8}
+              required
+            />
+          </div>
+          <button className="btn-primary" disabled={loading}>
+            {loading ? 'Salvando…' : 'Salvar nova senha'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

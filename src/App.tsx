@@ -5,6 +5,7 @@ import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
+import UpdatePassword from './pages/UpdatePassword';
 import Onboarding from './pages/Onboarding';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

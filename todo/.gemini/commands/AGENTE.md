@@ -47,17 +47,19 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 
 ## 🗺 Norte do Projeto (Roadmap)
 
-### 🚀 Roadmap SaaS (Aguardando Domínio)
-- [ ] **Isolamento de Dados (Multi-tenancy)**: Refinar via RLS (Row Level Security) do Supabase para garantir isolamento total entre inquilinos.
-- [ ] **Sistema de Subdomínios**: Implementar lógica para que cada barbearia tenha seu link único via subdomínio (ex: `barbearia-do-ze.narvalha.com.br`).
-- [ ] **Portal Administrativo Dedicado**: Mover a gestão SaaS para um domínio exclusivo (ex: `admin.narvalha.com`).
+### 🚀 Roadmap SaaS
+- [x] **Isolamento de Dados (Multi-tenancy)**: RLS com `user_barbershops()` + migrations de segurança aplicadas.
+- [x] **Portal Administrativo Dedicado**: `admin.narvalha.com.br` com login separado e dashboard SaaS.
+- [x] **Sistema Multi-Loja**: Loja matriz (Platina) pode criar filiais. Switcher no sidebar. Cada filial tem assinatura própria.
+- [ ] **Sistema de Subdomínios**: Link único por barbearia (`jc.narvalha.com.br`). Bloqueado: requer Vercel Pro. Alternativa: path `narvalha.com.br/b/<slug>`.
 
 ### 📈 Funcionalidades de Negócio
-- [ ] **Dashboard Estatístico**: Gráficos de faturamento diário, semanal e mensal.
+- [x] **Dashboard Estatístico**: Gráficos 7D / 30D / 12M com comparação % vs período anterior.
+- [x] **App PWA**: manifest.json + service worker registrado. Falta: gerar icon-192.png e icon-512.png.
 - [x] **Sistema de Fidelidade**: Contador de serviços automatizado via RPC `close_order`.
 - [x] **Controle de Despesas**: Aba financeira completa com contas a pagar e gestão de recorrência.
-- [ ] **App PWA**: Configurar para que o dono da barbearia possa "instalar" o site como um app no celular.
-- [ ] **Integração de Fotos**: Upload de fotos de "Antes e Depois" vinculadas ao cliente.
+- [ ] **Nível de Acesso por Loja**: Permissões granulares por membro — ex: "só pode mexer no caixa", "só acessa loja 1 ou 2". Cada role define quais módulos e quais lojas o usuário pode acessar.
+- [ ] **Integração de Fotos**: Upload de fotos "Antes e Depois" vinculadas ao cliente.
 
 ---
 

@@ -5,28 +5,36 @@ import { useAuth } from '../lib/auth-context';
 import { useCash } from '../lib/cash-context';
 import PageHeader from '../components/PageHeader';
 import { formatBRL } from '../lib/utils';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
+import { useState } from 'react';
+import {
+  startOfDay, endOfDay, subDays, subMonths,
+  format, startOfMonth, endOfMonth,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  TrendingUp, Calendar, DollarSign, Award,
+  TrendingUp, TrendingDown, Calendar, DollarSign, Award,
   ArrowDownCircle, Receipt, Users, Store, ShoppingCart, Package, Wallet
 } from 'lucide-react';
+
+type Period = '7d' | '30d' | '12m';
 
 export default function Dashboard() {
   const { barbershop } = useAuth();
   const { summary: cashSummary, session } = useCash();
   const navigate = useNavigate();
   const bid = barbershop?.id;
+  const [period, setPeriod] = useState<Period>('7d');
 
   const quickActions = [
-    { label: 'Caixa', icon: Store, to: '/caixa', color: 'bg-emerald-500/10 text-emerald-500' },
-    { label: 'PDV', icon: ShoppingCart, to: '/pdv', color: 'bg-amber-500/10 text-amber-500' },
-    { label: 'Agenda', icon: Calendar, to: '/agenda', color: 'bg-blue-500/10 text-blue-500' },
-    { label: 'Clientes', icon: Users, to: '/clientes', color: 'bg-purple-500/10 text-purple-500' },
-    { label: 'Catálogo', icon: Package, to: '/catalogo', color: 'bg-pink-500/10 text-pink-500' },
-    { label: 'Financeiro', icon: Wallet, to: '/financeiro', color: 'bg-orange-500/10 text-orange-500' },
+    { label: 'Caixa',      icon: Store,        to: '/caixa',     color: 'bg-emerald-500/10 text-emerald-500' },
+    { label: 'PDV',        icon: ShoppingCart, to: '/pdv',       color: 'bg-amber-500/10 text-amber-500' },
+    { label: 'Agenda',     icon: Calendar,     to: '/agenda',    color: 'bg-blue-500/10 text-blue-500' },
+    { label: 'Clientes',   icon: Users,        to: '/clientes',  color: 'bg-purple-500/10 text-purple-500' },
+    { label: 'Catálogo',   icon: Package,      to: '/catalogo',  color: 'bg-pink-500/10 text-pink-500' },
+    { label: 'Financeiro', icon: Wallet,       to: '/financeiro',color: 'bg-orange-500/10 text-orange-500' },
   ];
 
+  // Today KPIs
   const { data: today } = useQuery({
     queryKey: ['dashboard-today', bid],
     enabled: !!bid,
@@ -45,25 +53,90 @@ export default function Dashboard() {
     },
   });
 
+  // Chart data by period
   const { data: chart } = useQuery({
-    queryKey: ['dashboard-chart', bid],
+    queryKey: ['dashboard-chart', bid, period],
     enabled: !!bid,
     queryFn: async () => {
-      const start = subDays(startOfDay(new Date()), 6).toISOString();
+      if (period === '7d') {
+        const start = subDays(startOfDay(new Date()), 6).toISOString();
+        const { data } = await supabase.from('orders')
+          .select('fechada_em,total,desconto')
+          .eq('barbershop_id', bid!).eq('status', 'fechada').gte('fechada_em', start);
+        const map = new Map<string, number>();
+        for (let i = 6; i >= 0; i--) {
+          const d = format(subDays(new Date(), i), 'EEE', { locale: ptBR });
+          map.set(d, 0);
+        }
+        (data ?? []).forEach((o: any) => {
+          if (!o.fechada_em) return;
+          const d = format(new Date(o.fechada_em), 'EEE', { locale: ptBR });
+          map.set(d, (map.get(d) ?? 0) + Number(o.total) - Number(o.desconto ?? 0));
+        });
+        return Array.from(map.entries()).map(([d, v]) => ({ d, v }));
+      }
+
+      if (period === '30d') {
+        const start = subDays(startOfDay(new Date()), 29).toISOString();
+        const { data } = await supabase.from('orders')
+          .select('fechada_em,total,desconto')
+          .eq('barbershop_id', bid!).eq('status', 'fechada').gte('fechada_em', start);
+        const map = new Map<string, number>();
+        for (let i = 29; i >= 0; i--) {
+          const d = format(subDays(new Date(), i), 'dd/MM');
+          map.set(d, 0);
+        }
+        (data ?? []).forEach((o: any) => {
+          if (!o.fechada_em) return;
+          const d = format(new Date(o.fechada_em), 'dd/MM');
+          map.set(d, (map.get(d) ?? 0) + Number(o.total) - Number(o.desconto ?? 0));
+        });
+        return Array.from(map.entries()).map(([d, v], i) => ({
+          d: i % 5 === 0 || i === 29 ? d : '',
+          v,
+        }));
+      }
+
+      // 12m
+      const start = startOfMonth(subMonths(new Date(), 11)).toISOString();
       const { data } = await supabase.from('orders')
         .select('fechada_em,total,desconto')
         .eq('barbershop_id', bid!).eq('status', 'fechada').gte('fechada_em', start);
       const map = new Map<string, number>();
-      for (let i = 6; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), 'EEE', { locale: ptBR });
+      for (let i = 11; i >= 0; i--) {
+        const d = format(subMonths(new Date(), i), 'MMM', { locale: ptBR });
         map.set(d, 0);
       }
       (data ?? []).forEach((o: any) => {
         if (!o.fechada_em) return;
-        const d = format(new Date(o.fechada_em), 'EEE', { locale: ptBR });
+        const d = format(new Date(o.fechada_em), 'MMM', { locale: ptBR });
         map.set(d, (map.get(d) ?? 0) + Number(o.total) - Number(o.desconto ?? 0));
       });
       return Array.from(map.entries()).map(([d, v]) => ({ d, v }));
+    },
+  });
+
+  // Period totals for comparison
+  const { data: periodStats } = useQuery({
+    queryKey: ['dashboard-period-stats', bid, period],
+    enabled: !!bid,
+    queryFn: async () => {
+      const days = period === '7d' ? 7 : period === '30d' ? 30 : 365;
+      const curStart = subDays(startOfDay(new Date()), days - 1).toISOString();
+      const prevStart = subDays(startOfDay(new Date()), days * 2 - 1).toISOString();
+      const prevEnd   = subDays(endOfDay(new Date()), days).toISOString();
+
+      const [{ data: cur }, { data: prev }] = await Promise.all([
+        supabase.from('orders').select('total,desconto')
+          .eq('barbershop_id', bid!).eq('status', 'fechada').gte('fechada_em', curStart),
+        supabase.from('orders').select('total,desconto')
+          .eq('barbershop_id', bid!).eq('status', 'fechada')
+          .gte('fechada_em', prevStart).lte('fechada_em', prevEnd),
+      ]);
+      const curTotal  = (cur ?? []).reduce((s, o: any) => s + Number(o.total) - Number(o.desconto ?? 0), 0);
+      const prevTotal = (prev ?? []).reduce((s, o: any) => s + Number(o.total) - Number(o.desconto ?? 0), 0);
+      const pct = prevTotal > 0 ? ((curTotal - prevTotal) / prevTotal) * 100 : null;
+      return { curTotal, pct };
     },
   });
 
@@ -93,8 +166,10 @@ export default function Dashboard() {
   const faturamento = today?.faturamento ?? cashSummary?.total_entradas ?? 0;
   const sangrias = cashSummary?.total_sangrias ?? 0;
 
+  const periodLabel = period === '7d' ? 'últimos 7 dias' : period === '30d' ? 'últimos 30 dias' : 'últimos 12 meses';
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
       <PageHeader
         title="Dashboard"
         subtitle={format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -102,63 +177,78 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Kpi
-          icon={DollarSign}
-          label="Faturamento hoje"
-          value={formatBRL(faturamento)}
-          color="text-emerald-400"
-        />
+        <Kpi icon={DollarSign} label="Faturamento hoje" value={formatBRL(faturamento)} color="text-emerald-400" />
         <Kpi
           icon={Receipt}
           label="Atendimentos hoje"
           value={String(totalAtendimentos)}
           sub={`${today?.appts.filter((a: any) => a.status === 'finalizado').length ?? 0} finalizados`}
         />
-        <Kpi
-          icon={Users}
-          label="Ticket médio"
-          value={formatBRL(ticketMedio)}
-        />
-        <Kpi
-          icon={ArrowDownCircle}
-          label="Sangrias hoje"
-          value={formatBRL(sangrias)}
-          color={sangrias > 0 ? 'text-red-400' : undefined}
-        />
+        <Kpi icon={Users} label="Ticket médio" value={formatBRL(ticketMedio)} />
+        <Kpi icon={ArrowDownCircle} label="Sangrias hoje" value={formatBRL(sangrias)} color={sangrias > 0 ? 'text-red-400' : undefined} />
       </div>
 
       {/* Charts + rankings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar chart */}
         <div className="card p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-medium">Faturamento — últimos 7 dias</h3>
-            <span className="text-xs text-muted">
-              {formatBRL((chart ?? []).reduce((s, c) => s + c.v, 0))} total
-            </span>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <h3 className="text-sm font-medium capitalize">Faturamento — {periodLabel}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-muted">
+                  {formatBRL(periodStats?.curTotal ?? 0)} total
+                </span>
+                {periodStats?.pct != null && (
+                  <span className={`flex items-center gap-0.5 text-xs font-medium ${periodStats.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {periodStats.pct >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                    {Math.abs(periodStats.pct).toFixed(1)}% vs anterior
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Period switcher */}
+            <div className="flex gap-1 bg-ink-900 rounded-lg p-1">
+              {(['7d', '30d', '12m'] as Period[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    period === p ? 'bg-ink-700 text-ink-50' : 'text-muted hover:text-ink-300'
+                  }`}
+                >
+                  {p === '7d' ? '7D' : p === '30d' ? '30D' : '12M'}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-end gap-2 h-44">
+
+          <div className="flex items-end gap-1 h-44 overflow-hidden">
             {(chart ?? []).map((c, i) => {
-              const isToday = i === (chart?.length ?? 0) - 1;
+              const isLast = i === (chart?.length ?? 0) - 1;
               const pct = (c.v / max) * 100;
               return (
-                <div key={c.d} className="flex-1 flex flex-col items-center gap-2 group">
-                  <div className="w-full flex flex-col justify-end" style={{ height: '152px' }}>
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 group min-w-0">
+                  <div className="w-full flex flex-col justify-end" style={{ height: '140px' }}>
                     {c.v > 0 && (
-                      <div className="text-[10px] text-muted text-center mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="text-[9px] text-muted text-center mb-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                         {formatBRL(c.v)}
                       </div>
                     )}
                     <div
-                      className={`w-full rounded-t-md transition-all ${isToday ? 'opacity-100' : 'opacity-60'} hover:opacity-100`}
+                      className={`w-full rounded-t transition-all ${isLast ? 'opacity-100' : 'opacity-50'} hover:opacity-100`}
                       style={{
                         height: `${Math.max(pct, c.v > 0 ? 4 : 0)}%`,
-                        background: isToday ? 'var(--text)' : 'var(--bg-hover)',
-                        minHeight: c.v > 0 ? '6px' : '2px',
+                        background: isLast ? 'var(--text)' : 'var(--bg-hover)',
+                        minHeight: c.v > 0 ? '4px' : '2px',
                       }}
                     />
                   </div>
-                  <div className={`text-[11px] ${isToday ? 'font-medium' : 'text-muted'} capitalize`}>{c.d}</div>
+                  {c.d && (
+                    <div className={`text-[10px] truncate w-full text-center ${isLast ? 'font-medium' : 'text-muted'} capitalize`}>
+                      {c.d}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -180,9 +270,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted w-3">{i + 1}</span>
-                      <span className="text-sm">{b.nome}</span>
+                      <span className="text-sm truncate max-w-[120px]">{b.nome}</span>
                     </div>
-                    <span className="text-xs font-medium">{formatBRL(b.total)}</span>
+                    <span className="text-xs font-medium shrink-0">{formatBRL(b.total)}</span>
                   </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--text)' }} />
@@ -199,8 +289,8 @@ export default function Dashboard() {
 
       {/* Cash session info if open */}
       {session && (
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card p-5 md:col-span-3">
+        <div className="mt-4">
+          <div className="card p-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <div className="text-xs text-muted uppercase tracking-wide mb-1">Saldo estimado no caixa agora</div>
@@ -208,19 +298,17 @@ export default function Dashboard() {
                   {formatBRL(cashSummary?.saldo_estimado ?? 0)}
                 </div>
               </div>
-              <div className="flex gap-6 text-sm">
+              <div className="flex gap-6 text-sm flex-wrap">
                 {[
-                  { label: 'PIX',     value: cashSummary?.total_pix ?? 0 },
-                  { label: 'Dinheiro',value: cashSummary?.total_dinheiro ?? 0 },
-                  { label: 'Débito',  value: cashSummary?.total_debito ?? 0 },
-                  { label: 'Crédito', value: cashSummary?.total_credito ?? 0 },
-                ].map(({ label, value }) => (
-                  value > 0 ? (
-                    <div key={label} className="text-center">
-                      <div className="text-xs text-muted">{label}</div>
-                      <div className="font-medium">{formatBRL(value)}</div>
-                    </div>
-                  ) : null
+                  { label: 'PIX',      value: cashSummary?.total_pix ?? 0 },
+                  { label: 'Dinheiro', value: cashSummary?.total_dinheiro ?? 0 },
+                  { label: 'Débito',   value: cashSummary?.total_debito ?? 0 },
+                  { label: 'Crédito',  value: cashSummary?.total_credito ?? 0 },
+                ].filter(x => x.value > 0).map(({ label, value }) => (
+                  <div key={label} className="text-center">
+                    <div className="text-xs text-muted">{label}</div>
+                    <div className="font-medium">{formatBRL(value)}</div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -231,7 +319,7 @@ export default function Dashboard() {
       {/* Quick Access */}
       <div className="mt-8">
         <h3 className="text-sm font-bold text-ink-500 uppercase tracking-widest mb-4 ml-1">Acesso Rápido</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {quickActions.map((action) => (
             <button
               key={action.to}
@@ -254,12 +342,12 @@ function Kpi({ icon: Icon, label, value, sub, color }: {
   icon: any; label: string; value: string; sub?: string; color?: string;
 }) {
   return (
-    <div className="card p-5">
+    <div className="card p-4 md:p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-muted uppercase tracking-wide">{label}</span>
         <Icon size={15} className="text-muted" />
       </div>
-      <div className={`text-2xl font-semibold truncate ${color ?? ''}`}>{value}</div>
+      <div className={`text-xl md:text-2xl font-semibold truncate ${color ?? ''}`}>{value}</div>
       {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
     </div>
   );

@@ -9,8 +9,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Schedule from './pages/Schedule';
 import Clients from './pages/Clients';
-import Services from './pages/Services';
-import Products from './pages/Products';
+import Catalog from './pages/Catalog';
 import POS from './pages/POS';
 import PDV from './pages/PDV';
 import Finance from './pages/Finance';
@@ -84,9 +83,10 @@ function AppRoutes() {
           <Route path="/caixa/historico" element={<CaixaHistorico />} />
           <Route path="/agenda" element={<Schedule />} />
           <Route path="/clientes" element={<Clients />} />
-          <Route path="/servicos" element={<Services />} />
+          <Route path="/catalogo" element={<Catalog />} />
+          <Route path="/servicos" element={<Navigate to="/catalogo" replace />} />
+          <Route path="/produtos" element={<Navigate to="/catalogo" replace />} />
           <Route path="/promocoes" element={<Promotions />} />
-          <Route path="/produtos" element={<Products />} />
           <Route path="/atendimento/:id" element={<POS />} />
           <Route path="/pdv" element={<PDV />} />
           <Route path="/financeiro" element={<Finance />} />

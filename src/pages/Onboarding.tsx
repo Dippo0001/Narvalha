@@ -175,23 +175,44 @@ export default function Onboarding() {
 
         {step === 3 && (
           <div className="card p-6 space-y-4 max-w-lg mx-auto">
-            <h2 className="text-lg text-ink-50">Seus serviços</h2>
-            <p className="text-xs text-ink-500">Adicione os serviços básicos que você oferece.</p>
+            <h2 className="text-lg text-ink-50 font-bold">Seus serviços</h2>
+            <p className="text-xs text-ink-500">Adicione os serviços que você oferece. Você poderá mudar depois.</p>
             
-            <div className="grid grid-cols-6 gap-2 px-1">
-              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-3">Serviço</span>
-              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-1 text-center">Tempo</span>
-              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-2 text-center">Preço</span>
+            <div className="grid grid-cols-12 gap-2 px-1">
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-6">Serviço</span>
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-2 text-center">Tempo</span>
+              <span className="text-[10px] uppercase font-bold text-ink-500 col-span-3 text-center">Preço</span>
+              <span className="col-span-1"></span>
             </div>
 
-            {services.map((s, i) => (
-              <div key={i} className="grid grid-cols-6 gap-2">
-                <input className="input col-span-3" value={s.nome} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} />
-                <input className="input col-span-1 text-center" type="number" value={s.duracao_min} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, duracao_min: +e.target.value } : x))} />
-                <input className="input col-span-2 text-center" type="number" step="0.01" value={s.valor} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, valor: +e.target.value } : x))} />
-              </div>
-            ))}
-            <button onClick={createServices} className="btn-primary w-full" disabled={loading}>Concluir Onboarding</button>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {services.map((s, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2">
+                  <input className="input col-span-6" value={s.nome} placeholder="Ex: Corte" onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} />
+                  <input className="input col-span-2 text-center" type="number" value={s.duracao_min} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, duracao_min: +e.target.value } : x))} />
+                  <input className="input col-span-3 text-center" type="number" step="0.01" value={s.valor} onChange={(e) => setServices(services.map((x, j) => j === i ? { ...x, valor: +e.target.value } : x))} />
+                  <button 
+                    onClick={() => setServices(services.filter((_, j) => j !== i))}
+                    className="col-span-1 flex items-center justify-center text-red-500 hover:text-red-400"
+                    disabled={services.length <= 1}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => setServices([...services, { nome: '', duracao_min: 30, valor: 50 }])}
+              className="flex items-center justify-center gap-2 text-xs font-bold text-ink-300 hover:text-ink-50 transition-colors w-full py-2 border border-dashed border-ink-800 rounded-md"
+            >
+              <Plus size={14} /> Adicionar mais um serviço
+            </button>
+
+            <button onClick={createServices} className="btn-primary w-full flex items-center justify-center gap-2" disabled={loading}>
+              {loading ? <div className="w-5 h-5 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Concluir Onboarding'}
+            </button>
           </div>
         )}
       </div>

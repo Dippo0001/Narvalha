@@ -52,6 +52,8 @@ export default function Finance() {
 /* ─── Caixa do dia ──────────────────────────────────────────────── */
 function Caixa() {
   const { barbershop } = useAuth();
+  const [orderId, setOrderId] = useState<string | null>(null);
+
   const { data } = useQuery({
     queryKey: ['caixa', barbershop?.id],
     enabled: !!barbershop,
@@ -67,7 +69,7 @@ function Caixa() {
   const saidas   = (data ?? []).filter(m => m.tipo === 'saida').reduce((s, m) => s + Number(m.valor), 0);
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Kpi label="Entradas" value={formatBRL(entradas)} color="text-emerald-400" />
         <Kpi label="Saídas"   value={formatBRL(saidas)}   color="text-red-400" />
         <Kpi label="Saldo"    value={formatBRL(entradas - saidas)} />
@@ -75,16 +77,101 @@ function Caixa() {
       <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
         {(!data || data.length === 0) && <div className="p-8 text-center text-muted text-sm">Nenhum movimento hoje</div>}
         {(data ?? []).map((m) => (
-          <div key={m.id} className="flex items-center justify-between p-3">
+          <button key={m.id} 
+            onClick={() => m.ref_order_id && setOrderId(m.ref_order_id)}
+            className={`w-full flex items-center justify-between p-4 hover:bg-hover-soft transition-colors text-left ${m.ref_order_id ? 'cursor-pointer' : 'cursor-default'}`}
+          >
             <div>
-              <div className="text-sm">{m.descricao || m.categoria}</div>
-              <div className="text-xs text-muted">{format(new Date(m.data), 'HH:mm')}</div>
+              <div className="text-sm font-medium">{m.descricao || m.categoria}</div>
+              <div className="text-[10px] text-muted uppercase tracking-wider">{format(new Date(m.data), 'HH:mm')} {m.ref_order_id && '· Ver detalhes'}</div>
             </div>
-            <div className={m.tipo === 'entrada' ? 'text-emerald-400 font-medium' : 'text-red-400 font-medium'}>
+            <div className={m.tipo === 'entrada' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
               {m.tipo === 'entrada' ? '+' : '-'}{formatBRL(Number(m.valor))}
             </div>
+          </button>
+        ))}
+      </div>
+
+      <Modal open={!!orderId} onClose={() => setOrderId(null)} title="Detalhes da Venda">
+        {orderId && <OrderDetails id={orderId} />}
+      </Modal>
+    </div>
+  );
+}
+
+function OrderDetails({ id }: { id: string }) {
+  const { data: order, isLoading } = useQuery({
+    queryKey: ['order-details', id],
+    queryFn: async () => {
+      const { data: o } = await supabase.from('orders').select('*, barbers(nome_exibicao), clients(nome)')
+        .eq('id', id).single();
+      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', id);
+      return { ...o, items: items ?? [] };
+    }
+  });
+
+  if (isLoading) return <div className="p-8 text-center animate-pulse">Carregando detalhes...</div>;
+  if (!order) return <div className="p-8 text-center">Pedido não encontrado</div>;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="space-y-6 print:p-0">
+      <div className="flex justify-between items-start border-b border-border pb-4">
+        <div>
+          <h3 className="font-bold text-lg">Comanda #{order.id.slice(0,8)}</h3>
+          <p className="text-xs text-muted">{format(new Date(order.fechada_em), "dd/MM/yyyy 'às' HH:mm")}</p>
+        </div>
+        <div className="text-right">
+          <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold px-2 py-1 rounded uppercase">Pago</span>
+          <p className="text-xs text-muted mt-1 uppercase tracking-tighter">{order.forma_pagamento}</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[10px] font-bold text-muted uppercase tracking-widest">Itens</div>
+        {order.items.map((it: any) => (
+          <div key={it.id} className="flex justify-between text-sm">
+            <span>{it.qtd}x {it.descricao}</span>
+            <span className="font-medium">{formatBRL(Number(it.valor_total))}</span>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-2 pt-4 border-t border-border">
+        <div className="flex justify-between text-sm text-muted">
+          <span>Subtotal</span>
+          <span>{formatBRL(Number(order.total))}</span>
+        </div>
+        {Number(order.desconto) > 0 && (
+          <div className="flex justify-between text-sm text-red-400">
+            <span>Desconto</span>
+            <span>-{formatBRL(Number(order.desconto))}</span>
+          </div>
+        )}
+        <div className="flex justify-between font-bold text-lg pt-2">
+          <span>Total</span>
+          <span>{formatBRL(Number(order.total) - Number(order.desconto))}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 text-xs text-muted">
+        <div>
+          <div className="font-bold uppercase mb-1">Profissional</div>
+          <div>{order.barbers?.nome_exibicao}</div>
+        </div>
+        <div>
+          <div className="font-bold uppercase mb-1">Cliente</div>
+          <div>{order.clients?.nome || 'Consumidor Final'}</div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4 print:hidden">
+        <button onClick={handlePrint} className="btn-outline flex-1 gap-2">
+          <CreditCard size={16} /> Re-imprimir Recibo
+        </button>
       </div>
     </div>
   );
@@ -135,9 +222,16 @@ function ContasPagar() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Excluir esta conta?')) return;
-    await supabase.from('contas_pagar').delete().eq('id', id);
-    qc.invalidateQueries({ queryKey: ['contas_pagar'] });
+    if (!confirm('Excluir esta conta permanentemente?')) return;
+    
+    toast.promise(supabase.from('contas_pagar').delete().eq('id', id), {
+      loading: 'Excluindo...',
+      success: () => {
+        qc.invalidateQueries({ queryKey: ['contas_pagar'] });
+        return 'Conta excluída';
+      },
+      error: 'Erro ao excluir'
+    });
   };
 
   return (
@@ -239,9 +333,16 @@ function ContasReceber() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Excluir esta conta?')) return;
-    await supabase.from('contas_receber').delete().eq('id', id);
-    qc.invalidateQueries({ queryKey: ['contas_receber'] });
+    if (!confirm('Excluir esta conta permanentemente?')) return;
+    
+    toast.promise(supabase.from('contas_receber').delete().eq('id', id), {
+      loading: 'Excluindo...',
+      success: () => {
+        qc.invalidateQueries({ queryKey: ['contas_receber'] });
+        return 'Conta excluída';
+      },
+      error: 'Erro ao excluir'
+    });
   };
 
   return (
@@ -526,7 +627,10 @@ function PaymentMethodForm({ initial, onSave }: { initial: any; onSave: (v: any)
 /* ─── Comissões ─────────────────────────────────────────────────── */
 function Comissoes() {
   const { barbershop } = useAuth();
+  const qc = useQueryClient();
   const [days, setDays] = useState(30);
+  const [payModal, setPayModal] = useState<any>(null);
+
   const { data } = useQuery({
     queryKey: ['commissions', barbershop?.id, days],
     enabled: !!barbershop,
@@ -534,36 +638,141 @@ function Comissoes() {
       const start = subDays(new Date(), days).toISOString();
       const { data: orders } = await supabase.from('orders').select('id,barber_id,barbers(nome_exibicao)')
         .eq('barbershop_id', barbershop!.id).eq('status', 'fechada').gte('fechada_em', start);
+      
+      const { data: payments } = await supabase.from('barber_payments')
+        .select('barber_id, valor')
+        .eq('barbershop_id', barbershop!.id).gte('pago_em', start);
+
       if (!orders?.length) return [];
       const { data: items } = await supabase.from('order_items').select('order_id,comissao_valor')
         .in('order_id', orders.map((o: any) => o.id));
-      const sum = new Map<string, { nome: string; total: number }>();
+      
+      const sum = new Map<string, { id: string; nome: string; total: number; pago: number }>();
       orders.forEach((o: any) => {
-        const cur = sum.get(o.barber_id) ?? { nome: o.barbers?.nome_exibicao ?? '—', total: 0 };
+        const cur = sum.get(o.barber_id) ?? { id: o.barber_id, nome: o.barbers?.nome_exibicao ?? '—', total: 0, pago: 0 };
         const ordItems = (items ?? []).filter((i: any) => i.order_id === o.id);
         cur.total += ordItems.reduce((s: number, i: any) => s + Number(i.comissao_valor), 0);
         sum.set(o.barber_id, cur);
       });
+
+      payments?.forEach((p: any) => {
+        if (sum.has(p.barber_id)) {
+          const cur = sum.get(p.barber_id)!;
+          cur.pago += Number(p.valor);
+          sum.set(p.barber_id, cur);
+        }
+      });
+
       return Array.from(sum.values());
     },
   });
+
+  const handlePay = async (form: any) => {
+    const { error } = await supabase.from('barber_payments').insert({
+      ...form,
+      barbershop_id: barbershop?.id,
+      barber_id: payModal.id,
+    });
+    if (error) return toast.error(error.message);
+    toast.success('Pagamento registrado');
+    qc.invalidateQueries({ queryKey: ['commissions'] });
+    setPayModal(null);
+  };
+
   return (
     <div>
-      <select className="input w-auto mb-4" value={days} onChange={e => setDays(+e.target.value)}>
-        <option value={7}>Últimos 7 dias</option>
-        <option value={15}>Últimos 15 dias</option>
-        <option value={30}>Últimos 30 dias</option>
-      </select>
+      <div className="flex justify-between items-center mb-4">
+        <select className="input w-auto" value={days} onChange={e => setDays(+e.target.value)}>
+          <option value={7}>Últimos 7 dias</option>
+          <option value={15}>Últimos 15 dias</option>
+          <option value={30}>Últimos 30 dias</option>
+        </select>
+        <div className="text-[10px] text-muted uppercase font-bold">Comissões Acumuladas</div>
+      </div>
+      
       <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
         {(!data || data.length === 0) && <Empty text="Sem dados no período" />}
-        {(data ?? []).map((b, i) => (
-          <div key={i} className="flex items-center justify-between p-4">
-            <span>{b.nome}</span>
-            <span className="font-medium">{formatBRL(b.total)}</span>
-          </div>
-        ))}
+        {(data ?? []).map((b, i) => {
+          const saldo = b.total - b.pago;
+          return (
+            <div key={i} className="flex items-center justify-between p-4 hover:bg-hover-soft transition-colors">
+              <div className="flex-1">
+                <div className="text-sm font-bold text-ink-50">{b.nome}</div>
+                <div className="text-[10px] text-muted uppercase mt-0.5">
+                  Total: {formatBRL(b.total)} · Pago: {formatBRL(b.pago)}
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className={`text-sm font-bold ${saldo > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {formatBRL(saldo)}
+                </div>
+                {saldo > 0 && (
+                  <button 
+                    onClick={() => setPayModal(b)}
+                    className="btn-ghost px-3 py-1.5 text-xs text-ink-50 border border-ink-800 hover:bg-ink-800"
+                  >
+                    Pagar
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      <Modal open={!!payModal} onClose={() => setPayModal(null)} title={`Pagar Comissão — ${payModal?.nome}`}>
+        {payModal && <BarberPayForm saldo={payModal.total - payModal.pago} onSave={handlePay} />}
+      </Modal>
     </div>
+  );
+}
+
+function BarberPayForm({ saldo, onSave }: { saldo: number; onSave: (v: any) => void }) {
+  const [form, setForm] = useState({
+    valor: saldo,
+    metodo: 'pix',
+    observacoes: '',
+    comprovante_url: ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    await onSave(form);
+    setLoading(false);
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="p-3 bg-ink-900 border border-border rounded-lg mb-2">
+        <div className="text-[10px] text-muted uppercase font-bold">Saldo Pendente</div>
+        <div className="text-xl font-bold text-amber-400">{formatBRL(saldo)}</div>
+      </div>
+
+      <div>
+        <label className="label">Valor a Pagar (R$)</label>
+        <input className="input" type="number" step="0.01" value={form.valor} onChange={e => setForm({...form, valor: +e.target.value})} required />
+      </div>
+
+      <div>
+        <label className="label">Forma de Pagamento</label>
+        <select className="input" value={form.metodo} onChange={e => setForm({...form, metodo: e.target.value})}>
+          <option value="pix">PIX</option>
+          <option value="dinheiro">Dinheiro</option>
+          <option value="transferencia">Transferência</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="label">Observações / Link do Comprovante</label>
+        <textarea className="input" rows={2} value={form.observacoes} onChange={e => setForm({...form, observacoes: e.target.value})} placeholder={form.metodo === 'pix' ? 'Cole o link do comprovante ou ID da transação' : 'Ex: Pago em mãos'} />
+      </div>
+
+      <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={loading}>
+        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Confirmar Pagamento'}
+      </button>
+    </form>
   );
 }
 

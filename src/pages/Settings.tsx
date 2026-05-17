@@ -12,7 +12,7 @@ import type { Barber } from '../types/db';
 export default function Settings() {
   const { barbershop, refresh } = useAuth();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'geral' | 'equipe' | 'plano'>('geral');
+  const [tab, setTab] = useState<'geral' | 'equipe' | 'regras' | 'plano'>('geral');
   const [nome, setNome] = useState(barbershop?.nome ?? '');
   const [telefone, setTelefone] = useState(maskPhone(barbershop?.telefone ?? ''));
   const [endereco, setEndereco] = useState(barbershop?.endereco ?? '');
@@ -20,6 +20,8 @@ export default function Settings() {
   const [cancel, setCancel] = useState(barbershop?.cancel_min_hours ?? 2);
   const [numCadeiras, setNumCadeiras] = useState(barbershop?.num_cadeiras ?? 1);
   const [caixaAsCegas, setCaixaAsCegas] = useState(barbershop?.caixa_as_cegas ?? false);
+  const [frequencia, setFrequencia] = useState(barbershop?.comissao_frequencia ?? 'semanal');
+  const [diaPagamento, setDiaPagamento] = useState(barbershop?.comissao_dia_pagamento ?? '6');
 
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,9 @@ export default function Settings() {
       nome, telefone: telefone.replace(/\D/g, ''), endereco, slug, 
       cancel_min_hours: cancel,
       num_cadeiras: numCadeiras,
-      caixa_as_cegas: caixaAsCegas
+      caixa_as_cegas: caixaAsCegas,
+      comissao_frequencia: frequencia,
+      comissao_dia_pagamento: diaPagamento
     }).eq('id', barbershop.id);
     if (error) return toast.error(error.message);
     toast.success('Salvo');
@@ -48,6 +52,8 @@ export default function Settings() {
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'geral' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Geral</button>
         <button onClick={() => setTab('equipe')}
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'equipe' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Equipe</button>
+        <button onClick={() => setTab('regras')}
+          className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'regras' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Regras de Negócio</button>
         <button onClick={() => setTab('plano')}
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'plano' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Assinatura</button>
       </div>
@@ -71,8 +77,14 @@ export default function Settings() {
             <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
           </div>
           <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
-          
-          <div className="pt-4 border-t border-ink-800">
+
+          <button className="btn-primary">Salvar</button>
+        </form>
+      )}
+      {tab === 'regras' && (
+        <form onSubmit={saveShop} className="card p-6 space-y-6 max-w-xl">
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-ink-50 uppercase tracking-wider">Fechamento de Caixa</h3>
             <label className="flex items-center gap-3 cursor-pointer group">
               <div className="relative inline-flex items-center">
                 <input type="checkbox" checked={caixaAsCegas} onChange={(e) => setCaixaAsCegas(e.target.checked)} className="sr-only peer" />
@@ -85,7 +97,51 @@ export default function Settings() {
             </label>
           </div>
 
-          <button className="btn-primary">Salvar</button>
+          <div className="space-y-4 pt-6 border-t border-ink-800">
+            <h3 className="text-sm font-bold text-ink-50 uppercase tracking-wider">Pagamento de Comissões</h3>
+            <div>
+              <label className="label">Frequência de Pagamento</label>
+              <select className="input" value={frequencia} onChange={(e) => setFrequencia(e.target.value)}>
+                <option value="diario">Todo dia</option>
+                <option value="semanal">Toda semana</option>
+                <option value="quinzenal">A cada 15 dias</option>
+                <option value="mensal">Todo mês</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Dia do Pagamento</label>
+              <select className="input" value={diaPagamento} onChange={(e) => setDiaPagamento(e.target.value)}>
+                {frequencia === 'semanal' && (
+                  <>
+                    <option value="1">Segunda-feira</option>
+                    <option value="2">Terça-feira</option>
+                    <option value="3">Quarta-feira</option>
+                    <option value="4">Quinta-feira</option>
+                    <option value="5">Sexta-feira</option>
+                    <option value="6">Sábado</option>
+                    <option value="0">Domingo</option>
+                  </>
+                )}
+                {frequencia === 'mensal' && (
+                  <>
+                    <option value="1">Dia 1</option>
+                    <option value="5">Dia 5</option>
+                    <option value="10">Dia 10</option>
+                    <option value="15">Dia 15</option>
+                    <option value="20">Dia 20</option>
+                    <option value="25">Dia 25</option>
+                    <option value="30">Dia 30</option>
+                  </>
+                )}
+                {(frequencia === 'diario' || frequencia === 'quinzenal') && (
+                  <option value="auto">Automático pelo sistema</option>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <button className="btn-primary">Salvar Regras</button>
         </form>
       )}
       {tab === 'equipe' && <BarbersTab qc={qc} />}

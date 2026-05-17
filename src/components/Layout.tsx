@@ -15,9 +15,8 @@ const nav = [
   { to: '/pdv', label: 'PDV', icon: ShoppingCart },
   { to: '/agenda', label: 'Agenda', icon: Calendar },
   { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/servicos', label: 'Serviços', icon: Scissors },
+  { to: '/catalogo', label: 'Catálogo', icon: Package },
   { to: '/promocoes', label: 'Promoções', icon: Megaphone },
-  { to: '/produtos', label: 'Produtos', icon: Package },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];

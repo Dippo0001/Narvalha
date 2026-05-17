@@ -599,7 +599,7 @@ function FormasPagamento() {
     enabled: !!barbershop,
     queryFn: async () => {
       const { data } = await supabase.from('payment_methods').select('*')
-        .eq('barbershop_id', barbershop!.id).order('nome');
+        .eq('barbershop_id', barbershop!.id).order('is_default', { ascending: false });
       return data ?? [];
     },
   });
@@ -633,37 +633,20 @@ function FormasPagamento() {
         <button className="btn-primary" onClick={() => setModal('new')}><Plus size={14} /> Nova forma</button>
       </div>
 
-      <div className="card p-4 mb-4 text-sm text-muted">
-        <strong className="text-current">Formas padrão</strong> (dinheiro, PIX, débito, crédito) estão sempre disponíveis.
-        Adicione aqui formas extras como vale, cheque, link de pagamento ou maquininhas específicas.
-      </div>
-
       <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
-        {/* built-in */}
-        {[
-          { nome: 'Dinheiro', tipo: 'dinheiro', taxa: 0, prazo: 0 },
-          { nome: 'PIX',      tipo: 'pix',      taxa: 0, prazo: 0 },
-          { nome: 'Débito',   tipo: 'debito',   taxa: 0, prazo: 1 },
-          { nome: 'Crédito',  tipo: 'credito',  taxa: 0, prazo: 30 },
-        ].map(m => (
-          <div key={m.tipo} className="flex items-center gap-3 px-4 py-3 opacity-60">
-            <CreditCard size={16} className="text-muted shrink-0" />
-            <div className="flex-1">
-              <span className="text-sm font-medium">{m.nome}</span>
-              <span className="text-xs text-muted ml-2">padrão · {m.prazo}d liquidação</span>
-            </div>
-          </div>
-        ))}
-
         {isLoading && <Skeleton />}
         {(methods ?? []).map((m: any) => (
           <div key={m.id} className={`flex items-center gap-3 px-4 py-3 hover:bg-hover-soft transition-colors ${!m.ativo ? 'opacity-50' : ''}`}>
             <CreditCard size={16} className="text-muted shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">{m.nome}</div>
+              <div className="text-sm font-medium flex items-center gap-2">
+                {m.nome}
+                {m.is_default && <span className="text-[8px] bg-ink-800 text-ink-400 px-1 rounded uppercase font-bold tracking-widest border border-ink-700">Padrão</span>}
+              </div>
               <div className="text-xs text-muted">
                 {m.taxa_percentual > 0 && `Taxa ${m.taxa_percentual}% · `}
                 {m.prazo_liquidacao_dias}d liquidação
+                {m.tipo === 'pix' && m.pix_key && ` · Chave: ${m.pix_key}`}
               </div>
             </div>
             <div className="flex gap-1 shrink-0">
@@ -671,16 +654,16 @@ function FormasPagamento() {
                 {m.ativo ? 'Desativar' : 'Ativar'}
               </button>
               <button onClick={() => setModal(m)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
-              <button onClick={() => remove(m.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>
+              {!m.is_default && <button onClick={() => remove(m.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>}
             </div>
           </div>
         ))}
         {!isLoading && (methods ?? []).length === 0 && (
-          <Empty text="Nenhuma forma de pagamento extra cadastrada" />
+          <Empty text="Nenhuma forma de pagamento cadastrada" />
         )}
       </div>
 
-      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova forma de pagamento' : 'Editar forma'}>
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova forma de pagamento' : `Editar ${modal?.nome}`}>
         {modal !== null && <PaymentMethodForm initial={modal === 'new' ? null : modal} onSave={save} />}
       </Modal>
     </>
@@ -688,23 +671,55 @@ function FormasPagamento() {
 }
 
 function PaymentMethodForm({ initial, onSave }: { initial: any; onSave: (v: any) => void }) {
+  const { barbershop } = useAuth();
   const [form, setForm] = useState({
     nome: initial?.nome ?? '',
     tipo: initial?.tipo ?? 'outro',
     taxa_percentual: Number(initial?.taxa_percentual ?? 0),
     prazo_liquidacao_dias: Number(initial?.prazo_liquidacao_dias ?? 0),
     ativo: initial?.ativo ?? true,
+    pix_key: initial?.pix_key ?? '',
+    qr_code_url: initial?.qr_code_url ?? '',
   });
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const f = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  const uploadQR = async (file: File) => {
+    if (!barbershop || !initial?.id) return toast.error('Salve a forma de pagamento antes de enviar o QR Code');
+    const ext = file.name.split('.').pop();
+    const path = `qrcodes/${barbershop.id}/${initial.id}.${ext}`;
+    setUploading(true);
+    const { error } = await supabase.storage.from('general').upload(path, file, { upsert: true });
+    if (error) { setUploading(false); return toast.error(error.message); }
+    const { data } = supabase.storage.from('general').getPublicUrl(path);
+    f('qr_code_url', data.publicUrl);
+    setUploading(false);
+    toast.success('QR Code carregado');
+  };
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
       <div>
         <label className="label">Nome</label>
-        <input className="input" value={form.nome} onChange={e => f('nome', e.target.value)} required autoFocus placeholder="Ex: PicPay, Vale Alimentação" />
+        <input 
+          className="input" 
+          value={form.nome} 
+          onChange={e => f('nome', e.target.value)} 
+          required 
+          disabled={initial?.is_default}
+          placeholder="Ex: PicPay, Vale Alimentação" 
+        />
       </div>
       <div>
         <label className="label">Tipo</label>
-        <select className="input" value={form.tipo} onChange={e => f('tipo', e.target.value)}>
+        <select 
+          className="input" 
+          value={form.tipo} 
+          onChange={e => f('tipo', e.target.value)}
+          disabled={initial?.is_default}
+        >
           <option value="pix">PIX</option>
           <option value="debito">Débito</option>
           <option value="credito">Crédito</option>
@@ -712,6 +727,34 @@ function PaymentMethodForm({ initial, onSave }: { initial: any; onSave: (v: any)
           <option value="outro">Outro</option>
         </select>
       </div>
+
+      {form.tipo === 'pix' && (
+        <div className="space-y-4 p-4 bg-ink-900/50 rounded-lg border border-border">
+          <div>
+            <label className="label">Chave PIX (E-mail, CPF, CNPJ ou Aleatória)</label>
+            <input className="input" value={form.pix_key} onChange={e => f('pix_key', e.target.value)} placeholder="Sua chave PIX" />
+          </div>
+          <div>
+            <label className="label">QR Code (Imagem)</label>
+            <div 
+              className="w-full h-32 border-2 border-dashed border-ink-800 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-ink-800 transition-colors"
+              onClick={() => inputRef.current?.click()}
+            >
+              {form.qr_code_url ? (
+                <img src={form.qr_code_url} alt="QR Code" className="h-full object-contain" />
+              ) : (
+                <>
+                  <Camera size={24} className="text-ink-600" />
+                  <span className="text-[10px] text-ink-500 uppercase font-bold">Clique para carregar QR Code</span>
+                </>
+              )}
+              {uploading && <div className="absolute inset-0 bg-ink-950/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-ink-50/30 border-t-ink-50 rounded-full animate-spin" /></div>}
+            </div>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadQR(e.target.files[0])} />
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Taxa da adquirente (%)</label>
@@ -727,7 +770,9 @@ function PaymentMethodForm({ initial, onSave }: { initial: any; onSave: (v: any)
       <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
         <input type="checkbox" checked={form.ativo} onChange={e => f('ativo', e.target.checked)} /> Ativo
       </label>
-      <button className="btn-primary w-full">Salvar</button>
+      <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={uploading}>
+        {uploading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Salvar'}
+      </button>
     </form>
   );
 }

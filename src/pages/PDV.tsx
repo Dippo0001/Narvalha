@@ -439,13 +439,23 @@ export default function PDV() {
     );
   }
 
+  const { data: pixMethod } = useQuery({
+    queryKey: ['pix-method', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('payment_methods').select('*')
+        .eq('barbershop_id', barbershop!.id).eq('tipo', 'pix').eq('ativo', true).maybeSingle();
+      return data;
+    }
+  });
+
   /* ── PAGAMENTO ────────────────────────────────────────────────── */
   if (step === 'pagamento') return (
     <div className="p-8 max-w-xl mx-auto">
       <StepHeader step={3} total={3} title="Forma de pagamento" onCancel={() => setCancelModal(true)} />
       <PaymentStep
         total={total}
-        pixKey={barbershop?.telefone ?? ''}
+        pixMethod={pixMethod}
         onBack={() => setStep('venda')}
         onConfirm={finalize}
       />
@@ -568,8 +578,8 @@ function ClientPicker({ barbershopId, onSelect, onSkip }: {
 }
 
 /* ─── PaymentStep ────────────────────────────────────────────────── */
-function PaymentStep({ total, pixKey, onBack, onConfirm }: {
-  total: number; pixKey: string;
+function PaymentStep({ total, pixMethod, onBack, onConfirm }: {
+  total: number; pixMethod: any;
   onBack: () => void;
   onConfirm: (forma: PayForma, subForma?: 'credito' | 'debito', pagoValor?: number) => void;
 }) {
@@ -577,6 +587,7 @@ function PaymentStep({ total, pixKey, onBack, onConfirm }: {
   const [subForma, setSubForma] = useState<'credito' | 'debito' | null>(null);
   const [pagou, setPagou] = useState(total);
   const [pixOk, setPixOk] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
 
@@ -641,20 +652,53 @@ function PaymentStep({ total, pixKey, onBack, onConfirm }: {
       {/* PIX */}
       {forma === 'pix' && (
         <div className="space-y-3">
-          {pixKey && (
-            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
-              <div className="text-xs text-muted mb-1">Chave PIX da barbearia</div>
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{pixKey}</span>
-                <button onClick={() => { navigator.clipboard.writeText(pixKey); toast.success('Copiado!'); }}
-                  className="btn-ghost p-1.5"><Copy size={14} /></button>
+          {pixMethod?.pix_key && (
+            <div className="p-4 rounded-xl border border-border bg-ink-900/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-muted uppercase font-bold tracking-widest">Chave PIX</span>
+                <button onClick={() => { navigator.clipboard.writeText(pixMethod.pix_key); toast.success('Copiada!'); }}
+                  className="text-ink-400 hover:text-ink-50 flex items-center gap-1 text-[10px] uppercase font-bold">
+                  <Copy size={12} /> Copiar
+                </button>
               </div>
+              <div className="text-lg font-mono text-center break-all bg-black/20 p-2 rounded border border-ink-800">
+                {pixMethod.pix_key}
+              </div>
+              
+              {pixMethod.qr_code_url && (
+                <button 
+                  onClick={() => setShowQR(true)}
+                  className="w-full mt-4 flex items-center justify-center gap-2 p-3 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500/20 transition-colors border border-emerald-500/20"
+                >
+                  <Smartphone size={18} /> Abrir QR Code para Pagamento
+                </button>
+              )}
             </div>
           )}
-          <label className="flex items-center gap-3 p-4 rounded-xl cursor-pointer" style={{ background: 'var(--bg-hover)' }}>
-            <input type="checkbox" checked={pixOk} onChange={e => setPixOk(e.target.checked)} className="w-4 h-4" />
-            <span className="text-sm">Confirmo que o PIX de {formatBRL(total)} foi recebido</span>
+
+          {!pixMethod?.pix_key && (
+            <div className="p-4 rounded-xl border border-dashed border-ink-800 text-center text-xs text-muted">
+              Nenhuma chave PIX configurada nas Formas de Pagamento.
+            </div>
+          )}
+
+          <label className="flex items-center gap-3 p-4 rounded-xl cursor-pointer hover:bg-hover-soft transition-colors" style={{ background: 'var(--bg-hover)' }}>
+            <input type="checkbox" checked={pixOk} onChange={e => setPixOk(e.target.checked)} className="w-4 h-4 rounded border-border bg-ink-950 text-emerald-500 focus:ring-emerald-500" />
+            <span className="text-sm font-medium">Confirmo que recebi o PIX de {formatBRL(total)}</span>
           </label>
+
+          <Modal open={showQR} onClose={() => setShowQR(false)} title="QR Code PIX">
+            <div className="flex flex-col items-center gap-6 p-4">
+              <div className="bg-white p-4 rounded-2xl">
+                <img src={pixMethod?.qr_code_url} alt="QR Code PIX" className="w-64 h-64 object-contain" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold">{formatBRL(total)}</p>
+                <p className="text-xs text-muted mt-1 uppercase tracking-widest">{pixMethod?.pix_key}</p>
+              </div>
+              <button className="btn-primary w-full" onClick={() => setShowQR(false)}>Fechar</button>
+            </div>
+          </Modal>
         </div>
       )}
 

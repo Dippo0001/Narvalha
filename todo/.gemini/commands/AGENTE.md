@@ -71,7 +71,6 @@ Para que o desenvolvimento flua rápido, a IA deve possuir estas habilidades:
 - **Foco em Mobile UX**: Design pensado para o barbeiro que usa o celular com uma mão só enquanto trabalha.
 - **Otimização de Contexto**: Capacidade de entender as regras de multi-tenant (várias barbearias no mesmo banco).
 - **DNS e Routing**: Conhecimento em subdomínios dinâmicos e redirecionamento de host.
-
 ---
 
 *Última atualização: 15 de Maio de 2026*

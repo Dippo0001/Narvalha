@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, Calendar, Users, Scissors, Megaphone, Package, Wallet, 
-  Settings, LogOut, Sun, Moon, Store, ShoppingCart, 
-  Menu, X
+import {
+  LayoutDashboard, Calendar, Users, Megaphone, Package, Wallet,
+  Settings, LogOut, Sun, Moon, Store, ShoppingCart,
+  Menu, X, ChevronDown, Plus
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
@@ -21,8 +21,92 @@ const nav = [
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
+function StoreSwitcher({ closeMenu }: { closeMenu: () => void }) {
+  const { barbershop, barbershops, setActiveBarbershop } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const canAddStore = barbershop?.plan === 'platinum' && barbershop?.parent_barbershop_id === null;
+  const otherStores = barbershops.filter(b => b.id !== barbershop?.id);
+
+  // Single store: show plain name, no dropdown
+  if (barbershops.length <= 1 && !canAddStore) {
+    return (
+      <button onClick={() => { navigate('/'); closeMenu(); }} className="text-left hover:opacity-80 transition-opacity">
+        <div className="logo text-3xl">Navalha</div>
+        {barbershop && <div className="text-xs text-ink-500 mt-0.5 truncate max-w-[160px]">{barbershop.nome}</div>}
+      </button>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="text-left hover:opacity-90 transition-opacity w-full"
+      >
+        <div className="logo text-3xl">Navalha</div>
+        {barbershop && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-xs text-ink-500 truncate max-w-[140px]">{barbershop.nome}</span>
+            <ChevronDown size={12} className={`text-ink-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </div>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-52 bg-ink-900 border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+          {barbershops.map(shop => (
+            <button
+              key={shop.id}
+              onClick={() => {
+                setActiveBarbershop(shop.id);
+                setOpen(false);
+                navigate('/');
+                closeMenu();
+              }}
+              className={`w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-hover-soft flex items-center justify-between gap-2 ${
+                shop.id === barbershop?.id ? 'text-ink-50 font-medium' : 'text-ink-400'
+              }`}
+            >
+              <span className="truncate">{shop.nome}</span>
+              {shop.id === barbershop?.id && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
+            </button>
+          ))}
+          {canAddStore && (
+            <>
+              <div className="border-t border-border" />
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/nova-filial');
+                  closeMenu();
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm text-ink-400 hover:bg-hover-soft transition-colors flex items-center gap-2"
+              >
+                <Plus size={14} />
+                Adicionar filial
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Layout() {
-  const { barbershop, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -57,13 +141,7 @@ export default function Layout() {
       `}>
         {/* Sidebar Header */}
         <div className="px-6 py-6 border-b border-border flex items-center justify-between">
-          <button 
-            onClick={() => { navigate('/'); closeMenu(); }}
-            className="text-left hover:opacity-80 transition-opacity"
-          >
-            <div className="logo text-3xl">Navalha</div>
-            {barbershop && <div className="text-xs text-ink-500 mt-0.5 truncate">{barbershop.nome}</div>}
-          </button>
+          <StoreSwitcher closeMenu={closeMenu} />
           <button onClick={closeMenu} className="lg:hidden text-ink-500 hover:text-ink-50">
             <X size={24} />
           </button>

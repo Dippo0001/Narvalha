@@ -79,6 +79,16 @@ export default function PDV() {
     },
   });
 
+  const { data: pixMethod } = useQuery({
+    queryKey: ['pix-method', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('payment_methods').select('*')
+        .eq('barbershop_id', barbershop!.id).eq('tipo', 'pix').eq('ativo', true).maybeSingle();
+      return data;
+    }
+  });
+
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.preco * i.qtd, 0), [cart]);
   const total    = Math.max(0, subtotal - desconto);
 

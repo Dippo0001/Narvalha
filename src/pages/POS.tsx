@@ -148,6 +148,7 @@ export default function POS() {
   const finalize = async (forma: Forma, mistoPayments?: { forma: string; valor: number }[]) => {
     if (!items?.length) return toast.error('Adicione itens à comanda');
     if (!order) return;
+    if (!cashSession) return toast.error('Caixa fechado — abra o caixa antes de finalizar a venda');
 
     const barberId = order.barber_id;
     const comissaoPadrao = Number(order.barbers?.comissao_padrao ?? 50);

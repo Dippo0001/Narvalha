@@ -13,7 +13,8 @@ import {
 import { ptBR } from 'date-fns/locale';
 import {
   TrendingUp, TrendingDown, Calendar, DollarSign, Award,
-  ArrowDownCircle, Receipt, Users, Store, ShoppingCart, Package, Wallet
+  ArrowDownCircle, Receipt, Users, Store, ShoppingCart, Package, Wallet,
+  AlertTriangle, ArrowRight,
 } from 'lucide-react';
 
 type Period = '7d' | '30d' | '12m';
@@ -168,12 +169,46 @@ export default function Dashboard() {
 
   const periodLabel = period === '7d' ? 'últimos 7 dias' : period === '30d' ? 'últimos 30 dias' : 'últimos 12 meses';
 
+  // New user: no orders ever and no open cash session
+  const isNewUser = !session && today?.total_orders === 0 && (chart ?? []).every(c => c.v === 0);
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       <PageHeader
         title="Dashboard"
         subtitle={format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
       />
+
+      {/* First-time / caixa fechado guide */}
+      {isNewUser && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/8 p-5">
+          <div className="flex items-start gap-3 mb-4">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-300 mb-0.5">Bem-vindo! Antes de começar, abra o caixa 👇</p>
+              <p className="text-sm text-amber-400/80">O caixa registra todas as entradas e saídas do dia. Sem ele aberto, não é possível registrar vendas.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <a href="/caixa/abrir"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-amber-950 text-sm font-semibold hover:bg-amber-400 transition-colors">
+              <Store size={15} /> Abrir caixa agora <ArrowRight size={14} />
+            </a>
+            <a href="/configuracoes"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/30 text-amber-400 text-sm hover:bg-amber-500/10 transition-colors">
+              Configurar barbearia
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Caixa fechado reminder (returning user, just no open session today) */}
+      {!isNewUser && !session && (
+        <div className="mb-6 flex items-center gap-3 p-4 rounded-xl border border-ink-800 bg-ink-900/50 text-sm">
+          <AlertTriangle size={15} className="text-amber-400 shrink-0" />
+          <span className="text-muted">Caixa fechado — <a href="/caixa/abrir" className="text-amber-400 hover:text-amber-300 underline underline-offset-2">abra o caixa</a> para começar o dia</span>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

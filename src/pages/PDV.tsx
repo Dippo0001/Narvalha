@@ -14,7 +14,7 @@ import {
 import type { Service, Product, Client } from '../types/db';
 
 /* ─── types ─────────────────────────────────────────────────────── */
-type Step = 'idle' | 'client' | 'venda' | 'pagamento' | 'done';
+type Step = 'idle' | 'client' | 'barber' | 'venda' | 'pagamento' | 'done';
 type PayForma = 'dinheiro' | 'pix' | 'debito' | 'credito';
 
 interface CartItem {
@@ -212,16 +212,26 @@ export default function PDV() {
       <div className="text-center">
         <h1 className="text-2xl font-semibold mb-2">PDV — Venda Avulsa</h1>
         <p className="text-muted text-sm">Registre vendas diretas sem agendamento.</p>
-        {!cashSession && (
-          <div className="mt-3 flex items-center gap-2 p-3 rounded-lg text-sm text-amber-400"
-            style={{ background: 'rgba(245,158,11,0.1)' }}>
-            <AlertTriangle size={14} /> Caixa fechado — abra o caixa para registrar vendas
-          </div>
-        )}
       </div>
-      <button className="btn-primary px-8 py-3 text-base gap-2" onClick={() => setStep('client')}>
-        <Plus size={18} /> Iniciar venda
-      </button>
+
+      {!cashSession ? (
+        <div className="w-full max-w-sm flex flex-col items-center gap-4">
+          <div className="w-full flex items-start gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold mb-0.5">Caixa fechado</p>
+              <p className="text-amber-400/80">Para registrar vendas, abra o caixa primeiro informando o saldo inicial do dia.</p>
+            </div>
+          </div>
+          <a href="/caixa/abrir" className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base">
+            <Plus size={18} /> Abrir caixa agora
+          </a>
+        </div>
+      ) : (
+        <button className="btn-primary px-8 py-3 text-base gap-2" onClick={() => setStep('client')}>
+          <Plus size={18} /> Iniciar venda
+        </button>
+      )}
     </div>
   );
 

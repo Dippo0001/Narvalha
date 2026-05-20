@@ -176,7 +176,7 @@ const PLANS = [
     name: 'Platina', 
     price: 'R$ 59,90', 
     color: 'text-cyan-400',
-    features: ['Barbeiros ILIMITADOS', 'Serviços/Produtos ILIMITADOS', 'Módulo Promoção Completo', 'Multi-loja (em breve)'],
+    features: ['Barbeiros ILIMITADOS', 'Serviços/Produtos ILIMITADOS', 'Módulo Promoção Completo', 'Multi-loja (matriz + filiais)'],
     rank: 3
   },
 ];

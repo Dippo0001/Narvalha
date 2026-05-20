@@ -35,10 +35,7 @@ export default function Schedule() {
   const [apptModal, setApptModal] = useState<Appointment | null>(null);
 
   const copyPublicLink = () => {
-    if (!barbershop) return;
-    const url = `${window.location.origin}/b/${barbershop.slug}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Link de agendamento copiado para o WhatsApp!');
+    toast.info('Página de agendamento público em breve!');
   };
 
   const { data: barbers } = useQuery({

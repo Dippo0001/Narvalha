@@ -131,7 +131,7 @@ function Features() {
     {
       icon: Smartphone,
       title: 'No bolso',
-      desc: 'Instale como app no celular. Funciona offline pra agenda e cadastros básicos.',
+      desc: 'Acesse pelo celular como um app. Interface otimizada para telas pequenas.',
     },
   ];
 
@@ -268,7 +268,6 @@ function Footer() {
         <span className="logo text-xl text-ink-300">Navalha</span>
         <div className="flex items-center gap-6">
           <Link to="/privacidade" className="hover:text-ink-200 transition-colors">Privacidade</Link>
-          <Link to="/termos" className="hover:text-ink-200 transition-colors">Termos</Link>
           <Link to="/login" className="hover:text-ink-200 transition-colors">Entrar</Link>
         </div>
         <span>© {new Date().getFullYear()} Navalha</span>

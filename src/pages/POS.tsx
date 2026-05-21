@@ -11,7 +11,7 @@ import {
   Trash2, Search, X, Check, Copy, MessageCircle,
   Scissors, Package, Banknote, Smartphone, CreditCard, Shuffle, AlertTriangle, Star,
 } from 'lucide-react';
-import type { OrderItem, Service, Product } from '../types/db';
+import type { OrderItem, Service, Product, CardBrand } from '../types/db';
 
 const STORAGE_KEY = (id: string) => `pos_draft_${id}`;
 type Forma = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'misto';
@@ -68,6 +68,15 @@ export default function POS() {
     queryFn: async () => {
       const { data } = await supabase.from('products').select('*').eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome');
       return (data ?? []) as Product[];
+    },
+  });
+
+  const { data: cardBrands } = useQuery({
+    queryKey: ['card-brands-pos', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('card_brands').select('*').eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome');
+      return (data ?? []) as CardBrand[];
     },
   });
 
@@ -145,13 +154,15 @@ export default function POS() {
     nav('/agenda');
   };
 
-  const finalize = async (forma: Forma, mistoPayments?: { forma: string; valor: number }[]) => {
+  const finalize = async (forma: Forma, mistoPayments?: { forma: string; valor: number }[], bandeiraTaxa?: number) => {
     if (!items?.length) return toast.error('Adicione itens à comanda');
     if (!order) return;
     if (!cashSession) return toast.error('Caixa fechado — abra o caixa antes de finalizar a venda');
 
     const barberId = order.barber_id;
     const comissaoPadrao = Number(order.barbers?.comissao_padrao ?? 50);
+    // Card brand fee deduction: commission is applied on the net received amount
+    const fatorLiquido = bandeiraTaxa ? 1 - bandeiraTaxa / 100 : 1;
 
     const svcIds = items.filter(i => i.tipo === 'servico').map(i => i.ref_id).filter(Boolean) as string[];
     const { data: overrides } = await supabase.from('service_commissions').select('*')
@@ -164,7 +175,8 @@ export default function POS() {
         const ov = (overrides ?? []).find((o: any) => o.service_id === it.ref_id);
         pct = Number(ov?.percentual ?? comissaoPadrao);
       }
-      const val = (Number(it.valor_total) * pct) / 100;
+      const valorLiquido = Number(it.valor_total) * fatorLiquido;
+      const val = (valorLiquido * pct) / 100;
       await supabase.from('order_items').update({ comissao_percentual: pct, comissao_valor: val }).eq('id', it.id);
     }
 
@@ -376,7 +388,7 @@ export default function POS() {
       </div>
 
       <Modal open={payModal} onClose={() => setPayModal(false)} title={`Finalizar · ${formatBRL(total)}`} wide>
-        <PaymentModal total={total} pixKey={barbershop?.telefone ?? ''} onConfirm={finalize} />
+        <PaymentModal total={total} pixKey={barbershop?.telefone ?? ''} brands={cardBrands ?? []} onConfirm={finalize} />
       </Modal>
 
       <Modal open={cancelConfirm} onClose={() => setCancelConfirm(false)} title="Cancelar comanda?">
@@ -443,8 +455,9 @@ function SearchDropdown({ placeholder, items, search, onSearch, onClose, renderI
 }
 
 /* ─── Payment modal ──────────────────────────────────────────────── */
-function PaymentModal({ total, pixKey, onConfirm }: {
-  total: number; pixKey: string; onConfirm: (forma: Forma, extra?: { forma: string; valor: number }[]) => void;
+function PaymentModal({ total, pixKey, brands, onConfirm }: {
+  total: number; pixKey: string; brands: CardBrand[];
+  onConfirm: (forma: Forma, extra?: { forma: string; valor: number }[], bandeiraTaxa?: number) => void;
 }) {
   const [forma, setForma] = useState<Forma>('pix');
   const [pagou, setPagou] = useState(total);
@@ -452,9 +465,19 @@ function PaymentModal({ total, pixKey, onConfirm }: {
   const [m1Forma, setM1Forma] = useState('debito');
   const [m1Valor, setM1Valor] = useState(0);
   const [m2Forma, setM2Forma] = useState('dinheiro');
+  const [selectedBrand, setSelectedBrand] = useState<CardBrand | null>(null);
 
+  const isCard = forma === 'debito' || forma === 'credito';
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
   const m2Valor = Math.max(0, total - m1Valor);
+  const taxaCartao = selectedBrand?.percentual ?? 0;
+  const valorLiquido = isCard && taxaCartao > 0 ? total * (1 - taxaCartao / 100) : null;
+
+  // Reset brand when forma changes to non-card
+  const handleForma = (f: Forma) => {
+    setForma(f);
+    if (f !== 'debito' && f !== 'credito') setSelectedBrand(null);
+  };
 
   const canConfirm = () => {
     if (forma === 'pix') return pixOk;
@@ -466,7 +489,7 @@ function PaymentModal({ total, pixKey, onConfirm }: {
     if (forma === 'misto') {
       onConfirm('misto', [{ forma: m1Forma, valor: m1Valor }, { forma: m2Forma, valor: m2Valor }]);
     } else {
-      onConfirm(forma);
+      onConfirm(forma, undefined, isCard && selectedBrand ? selectedBrand.percentual : undefined);
     }
   };
 
@@ -482,7 +505,7 @@ function PaymentModal({ total, pixKey, onConfirm }: {
     <div className="space-y-5">
       <div className="grid grid-cols-5 gap-2">
         {FORMAS.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setForma(key)}
+          <button key={key} onClick={() => handleForma(key)}
             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all text-sm ${forma === key ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
             style={forma === key ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : {}}>
             <Icon size={20} />
@@ -522,6 +545,29 @@ function PaymentModal({ total, pixKey, onConfirm }: {
             <input type="checkbox" checked={pixOk} onChange={e => setPixOk(e.target.checked)} />
             <span className="text-sm">Confirmo que recebi o PIX de {formatBRL(total)}</span>
           </label>
+        </div>
+      )}
+
+      {isCard && brands.length > 0 && (
+        <div>
+          <label className="label">Bandeira do cartão (opcional)</label>
+          <div className="flex flex-wrap gap-2">
+            {brands.map(b => (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
+                className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrand?.id === b.id ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
+                style={selectedBrand?.id === b.id ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : {}}
+              >
+                {b.nome} <span className="text-muted text-xs">({b.percentual}%)</span>
+              </button>
+            ))}
+          </div>
+          {valorLiquido !== null && (
+            <p className="text-xs text-amber-400 mt-2">
+              Taxa {taxaCartao}% → líquido {formatBRL(valorLiquido)} · comissão calculada sobre valor líquido
+            </p>
+          )}
         </div>
       )}
 

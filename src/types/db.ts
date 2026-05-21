@@ -34,8 +34,10 @@ export interface Barber {
   barber_login: string | null; barber_pin: string | null;
 }
 
+export type CardBrandTipo = 'debito' | 'credito_avista' | 'parcelado_2_6' | 'parcelado_7_12';
+
 export interface CardBrand {
-  id: string; barbershop_id: string; nome: string; percentual: number; ativo: boolean;
+  id: string; barbershop_id: string; nome: string; tipo: CardBrandTipo; percentual: number; ativo: boolean;
 }
 export interface WorkingHour {
   id: string; barber_id: string; dia_semana: number; hora_inicio: string; hora_fim: string;

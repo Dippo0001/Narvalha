@@ -473,10 +473,17 @@ function PaymentModal({ total, pixKey, brands, onConfirm }: {
   const taxaCartao = selectedBrand?.percentual ?? 0;
   const valorLiquido = isCard && taxaCartao > 0 ? total * (1 - taxaCartao / 100) : null;
 
+  const filteredBrands = brands.filter(b => {
+    if (forma === 'debito') return b.tipo === 'debito';
+    if (forma === 'credito') return b.tipo === 'credito_avista';
+    return false;
+  });
+
   // Reset brand when forma changes to non-card
   const handleForma = (f: Forma) => {
     setForma(f);
     if (f !== 'debito' && f !== 'credito') setSelectedBrand(null);
+    else setSelectedBrand(null);
   };
 
   const canConfirm = () => {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
@@ -16,7 +16,15 @@ import {
   Clock, Camera, Copy, Smartphone, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CashMovement, CardBrand } from '../types/db';
+import type { CashMovement, CardBrand, CardBrandTipo } from '../types/db';
+
+const TIPO_LABELS: Record<CardBrandTipo, string> = {
+  debito: 'Débito',
+  credito_avista: 'Crédito à vista',
+  parcelado_2_6: 'Parc. 2–6x',
+  parcelado_7_12: 'Parc. 7–12x',
+};
+const BRAND_TIPOS: CardBrandTipo[] = ['debito', 'credito_avista', 'parcelado_2_6', 'parcelado_7_12'];
 
 type Tab = 'caixa' | 'comissoes' | 'relatorios' | 'pagar' | 'receber' | 'formas';
 
@@ -642,7 +650,14 @@ function FormasPagamento() {
     queryFn: async () => {
       const { data } = await supabase.from('payment_methods').select('*')
         .eq('barbershop_id', barbershop!.id).order('is_default', { ascending: false });
-      return data ?? [];
+      // Dedup by nome+tipo — DB may have duplicate rows from multiple seedings
+      const seen = new Set<string>();
+      return (data ?? []).filter((m: any) => {
+        const key = `${m.nome}|${m.tipo}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     },
   });
 
@@ -719,7 +734,8 @@ function FormasPagamento() {
 function CardBrandsSection() {
   const { barbershop } = useAuth();
   const qc = useQueryClient();
-  const [modal, setModal] = useState<CardBrand | 'new' | null>(null);
+  const [addModal, setAddModal] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data: brands, isLoading } = useQuery({
     queryKey: ['card_brands', barbershop?.id],
@@ -731,82 +747,171 @@ function CardBrandsSection() {
     },
   });
 
-  const save = async (form: { nome: string; percentual: number }) => {
+  const brandGroups = useMemo(() => {
+    const map = new Map<string, CardBrand[]>();
+    (brands ?? []).forEach(b => {
+      const arr = map.get(b.nome) ?? [];
+      arr.push(b);
+      map.set(b.nome, arr);
+    });
+    return map;
+  }, [brands]);
+
+  const brandNames = Array.from(brandGroups.keys()).sort();
+
+  const saveNew = async (rows: { nome: string; tipo: string; percentual: number }[]) => {
     if (!barbershop) return;
-    const payload = { ...form, barbershop_id: barbershop.id };
-    const { error } = modal === 'new'
-      ? await supabase.from('card_brands').insert(payload)
-      : await supabase.from('card_brands').update(payload).eq('id', (modal as CardBrand).id);
+    const payload = rows.map(r => ({ ...r, barbershop_id: barbershop.id, ativo: true }));
+    const { error } = await supabase.from('card_brands').insert(payload);
     if (error) return toast.error(error.message);
     toast.success('Bandeira salva');
     qc.invalidateQueries({ queryKey: ['card_brands'] });
-    setModal(null);
+    setAddModal(false);
   };
 
-  const remove = async (id: string) => {
-    if (!confirm('Excluir bandeira?')) return;
-    await supabase.from('card_brands').delete().eq('id', id);
+  const upsertRate = async (nome: string, tipo: string, percentual: number) => {
+    if (!barbershop) return;
+    const existing = brands?.find(b => b.nome === nome && b.tipo === tipo);
+    const { error } = existing
+      ? await supabase.from('card_brands').update({ percentual }).eq('id', existing.id)
+      : await supabase.from('card_brands').insert({ nome, tipo, percentual, ativo: true, barbershop_id: barbershop.id });
+    if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ['card_brands'] });
+  };
+
+  const removeBrand = async (nome: string) => {
+    if (!confirm(`Excluir todas as taxas de "${nome}"?`)) return;
+    const ids = (brands ?? []).filter(b => b.nome === nome).map(b => b.id);
+    await supabase.from('card_brands').delete().in('id', ids);
+    qc.invalidateQueries({ queryKey: ['card_brands'] });
+    if (expanded === nome) setExpanded(null);
+    toast.success('Bandeira removida');
   };
 
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-bold text-ink-50">Taxas por Bandeira de Cartão</h3>
-          <p className="text-xs text-ink-500 mt-0.5">A taxa é descontada do valor bruto antes de calcular a comissão do barbeiro.</p>
+          <h3 className="text-sm font-bold">Taxas por Bandeira de Cartão</h3>
+          <p className="text-xs text-muted mt-0.5">A taxa é descontada do valor bruto antes de calcular a comissão do barbeiro.</p>
         </div>
-        <button className="btn-primary" onClick={() => setModal('new')}><Plus size={14} /> Nova bandeira</button>
+        <button className="btn-primary" onClick={() => setAddModal(true)}><Plus size={14} /> Nova bandeira</button>
       </div>
 
       <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
         {isLoading && <Skeleton />}
-        {!isLoading && (brands ?? []).length === 0 && (
+        {!isLoading && brandNames.length === 0 && (
           <Empty text="Nenhuma bandeira cadastrada — as comissões incidem sobre o valor bruto" />
         )}
-        {(brands ?? []).map((b) => (
-          <div key={b.id} className="flex items-center justify-between px-4 py-3 hover:bg-hover-soft transition-colors">
-            <div>
-              <div className="text-sm font-medium">{b.nome}</div>
-              <div className="text-xs text-muted">Taxa: {b.percentual}%</div>
+        {brandNames.map(nome => {
+          const rows = brandGroups.get(nome) ?? [];
+          const isOpen = expanded === nome;
+          const summary = BRAND_TIPOS
+            .map(t => { const r = rows.find(x => x.tipo === t); return r && r.percentual > 0 ? `${TIPO_LABELS[t]}: ${r.percentual}%` : null; })
+            .filter(Boolean).join(' · ');
+          return (
+            <div key={nome}>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-hover-soft transition-colors text-left"
+                onClick={() => setExpanded(isOpen ? null : nome)}
+              >
+                <ChevronRight size={14} className={`text-muted shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium">{nome}</span>
+                  {summary && <span className="text-xs text-muted ml-3">{summary}</span>}
+                </div>
+                <button
+                  onClick={e => { e.stopPropagation(); removeBrand(nome); }}
+                  className="btn-ghost px-2 py-1.5 text-red-400"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </button>
+
+              {isOpen && (
+                <div className="border-t divide-y" style={{ borderColor: 'var(--border)' }}>
+                  {BRAND_TIPOS.map(tipo => {
+                    const row = rows.find(r => r.tipo === tipo);
+                    return (
+                      <div key={tipo} className="flex items-center justify-between px-10 py-2.5">
+                        <span className="text-sm text-muted">{TIPO_LABELS[tipo]}</span>
+                        <RateInput value={row?.percentual ?? 0} onSave={val => upsertRate(nome, tipo, val)} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="flex gap-1">
-              <button onClick={() => setModal(b)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
-              <button onClick={() => remove(b.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova bandeira' : 'Editar bandeira'}>
-        {modal !== null && (
-          <CardBrandForm
-            initial={modal === 'new' ? null : modal as CardBrand}
-            onSave={save}
-          />
-        )}
+      <Modal open={addModal} onClose={() => setAddModal(false)} title="Nova bandeira">
+        <CardBrandForm onSave={saveNew} />
       </Modal>
     </div>
   );
 }
 
-function CardBrandForm({ initial, onSave }: { initial: CardBrand | null; onSave: (v: any) => void }) {
-  const [nome, setNome] = useState(initial?.nome ?? '');
-  const [percentual, setPercentual] = useState(Number(initial?.percentual ?? 0));
+function RateInput({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onSave(draft);
+  };
+
+  if (editing) return (
+    <input
+      className="input w-24 text-right text-sm py-1"
+      type="number" step="0.01" min={0} max={100}
+      value={draft}
+      onChange={e => setDraft(+e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+      autoFocus
+    />
+  );
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ nome, percentual }); }} className="space-y-4">
+    <button
+      onClick={() => setEditing(true)}
+      className="text-sm font-medium tabular-nums hover:text-amber-400 transition-colors px-2 py-1 rounded"
+    >
+      {value > 0 ? `${value}%` : <span className="text-muted text-xs">Definir</span>}
+    </button>
+  );
+}
+
+function CardBrandForm({ onSave }: { onSave: (rows: { nome: string; tipo: string; percentual: number }[]) => void }) {
+  const [nome, setNome] = useState('');
+  const [rates, setRates] = useState<Record<CardBrandTipo, number>>({
+    debito: 0, credito_avista: 0, parcelado_2_6: 0, parcelado_7_12: 0,
+  });
+  const setRate = (tipo: CardBrandTipo, v: number) => setRates(p => ({ ...p, [tipo]: v }));
+
+  return (
+    <form
+      onSubmit={e => { e.preventDefault(); onSave(BRAND_TIPOS.map(tipo => ({ nome, tipo, percentual: rates[tipo] }))); }}
+      className="space-y-4"
+    >
       <div>
         <label className="label">Nome da bandeira</label>
-        <input className="input" value={nome} onChange={e => setNome(e.target.value)} required autoFocus placeholder="Ex: Visa, Mastercard, Elo" />
+        <input className="input" value={nome} onChange={e => setNome(e.target.value)} required autoFocus
+          placeholder="Ex: Visa, Mastercard, Elo" />
       </div>
-      <div>
-        <label className="label">Taxa da adquirente (%)</label>
-        <input className="input" type="number" step="0.01" min={0} max={20} value={percentual}
-          onChange={e => setPercentual(+e.target.value)} required />
-        <p className="text-xs text-ink-500 mt-1">
-          Ex: 1.5% → venda de R$100 = R$98,50 líquido para comissão.
-        </p>
+      <div className="grid grid-cols-2 gap-3">
+        {BRAND_TIPOS.map(tipo => (
+          <div key={tipo}>
+            <label className="label">{TIPO_LABELS[tipo]} (%)</label>
+            <input className="input" type="number" step="0.01" min={0} max={100}
+              value={rates[tipo]} onChange={e => setRate(tipo, +e.target.value)} />
+          </div>
+        ))}
       </div>
+      <p className="text-xs text-muted">Ex: Débito 1.89% → venda R$100 = R$98,11 líquido para comissão.</p>
       <button className="btn-primary w-full">Salvar</button>
     </form>
   );

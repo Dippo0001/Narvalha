@@ -646,7 +646,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
 }) {
   const [forma, setForma] = useState<'dinheiro' | 'pix' | 'cartao' | null>(null);
   const [subForma, setSubForma] = useState<'credito' | 'debito' | null>(null);
-  const [selectedBrand, setSelectedBrand] = useState<CardBrand | null>(null);
+  const [selectedBrandName, setSelectedBrandName] = useState<string | null>(null);
   const [pagou, setPagou] = useState(total);
   const [pixOk, setPixOk] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -665,8 +665,25 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
     },
   });
 
+  const SUBFROMA_TIPO: Record<string, string> = { credito: 'credito_avista', debito: 'debito' };
+
+  // Unique brand names that have a configured rate for the current subForma
+  const availableBrandNames = useMemo(() => {
+    if (!subForma) return [];
+    const tipo = SUBFROMA_TIPO[subForma];
+    const names = new Set<string>();
+    (cardBrands ?? []).filter(b => b.tipo === tipo && b.percentual > 0).forEach(b => names.add(b.nome));
+    return Array.from(names).sort();
+  }, [subForma, cardBrands]);
+
+  // Rate for selected brand + current subForma — applied automatically
+  const activeBrandRow = useMemo(() => {
+    if (!selectedBrandName || !subForma) return null;
+    return (cardBrands ?? []).find(b => b.nome === selectedBrandName && b.tipo === SUBFROMA_TIPO[subForma]) ?? null;
+  }, [selectedBrandName, subForma, cardBrands]);
+
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
-  const taxaCartao = selectedBrand?.percentual ?? 0;
+  const taxaCartao = activeBrandRow?.percentual ?? 0;
   const valorLiquidoCartao = total * (1 - taxaCartao / 100);
 
   const canConfirm = () => {
@@ -681,7 +698,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
     if (forma === 'dinheiro') onConfirm('dinheiro', undefined, pagou);
     else if (forma === 'pix') onConfirm('pix');
     else if (forma === 'cartao' && subForma) {
-      onConfirm(subForma, subForma, undefined, selectedBrand?.nome, taxaCartao);
+      onConfirm(subForma, subForma, undefined, selectedBrandName ?? undefined, taxaCartao);
     }
   };
 
@@ -792,7 +809,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
                 { key: 'credito' as const, label: 'Crédito' },
                 { key: 'debito'  as const, label: 'Débito' },
               ]).map(({ key, label }) => (
-                <button key={key} onClick={() => setSubForma(key)}
+                <button key={key} onClick={() => { setSubForma(key); setSelectedBrandName(null); }}
                   className={`py-4 rounded-xl border text-sm font-medium transition-all ${subForma === key ? '' : 'border-transparent hover:bg-hover-soft text-muted'}`}
                   style={subForma === key ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}>
                   {label}
@@ -802,25 +819,25 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
           </div>
 
           {/* Bandeira de cartão */}
-          {(cardBrands ?? []).length > 0 && (
+          {subForma && availableBrandNames.length > 0 && (
             <div>
               <label className="label mb-2">Bandeira <span className="text-ink-600 font-normal">(opcional — afeta a comissão)</span></label>
               <div className="flex flex-wrap gap-2">
-                {(cardBrands ?? []).map(b => (
+                {availableBrandNames.map(name => (
                   <button
-                    key={b.id}
+                    key={name}
                     type="button"
-                    onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
-                    className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrand?.id === b.id ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
-                    style={selectedBrand?.id === b.id ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}
+                    onClick={() => setSelectedBrandName(selectedBrandName === name ? null : name)}
+                    className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrandName === name ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
+                    style={selectedBrandName === name ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}
                   >
-                    {b.nome} <span className="text-ink-500 text-xs">({b.percentual}%)</span>
+                    {name}
                   </button>
                 ))}
               </div>
-              {selectedBrand && taxaCartao > 0 && (
+              {activeBrandRow && taxaCartao > 0 && (
                 <div className="mt-3 flex justify-between text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <span className="text-amber-400">Taxa {selectedBrand.nome} ({taxaCartao}%)</span>
+                  <span className="text-amber-400">Taxa {selectedBrandName} ({taxaCartao}%)</span>
                   <span className="font-medium">
                     Líquido: <span className="text-emerald-400">{formatBRL(valorLiquidoCartao)}</span>
                   </span>

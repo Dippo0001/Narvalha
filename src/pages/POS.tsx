@@ -465,25 +465,36 @@ function PaymentModal({ total, pixKey, brands, onConfirm }: {
   const [m1Forma, setM1Forma] = useState('debito');
   const [m1Valor, setM1Valor] = useState(0);
   const [m2Forma, setM2Forma] = useState('dinheiro');
-  const [selectedBrand, setSelectedBrand] = useState<CardBrand | null>(null);
+  const [selectedBrandName, setSelectedBrandName] = useState<string | null>(null);
 
   const isCard = forma === 'debito' || forma === 'credito';
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
   const m2Valor = Math.max(0, total - m1Valor);
-  const taxaCartao = selectedBrand?.percentual ?? 0;
+
+  const FORMA_TIPO: Record<string, string> = { credito: 'credito_avista', debito: 'debito' };
+
+  // Unique brand names that have a rate for the current card forma
+  const availableBrandNames = useMemo(() => {
+    if (!isCard) return [];
+    const tipo = FORMA_TIPO[forma as string];
+    if (!tipo) return [];
+    const names = new Set<string>();
+    brands.filter(b => b.tipo === tipo && b.percentual > 0).forEach(b => names.add(b.nome));
+    return Array.from(names).sort();
+  }, [forma, brands, isCard]);
+
+  // Rate applied automatically based on selected brand + current forma
+  const activeBrandRow = useMemo(() => {
+    if (!selectedBrandName || !isCard) return null;
+    return brands.find(b => b.nome === selectedBrandName && b.tipo === FORMA_TIPO[forma as string]) ?? null;
+  }, [selectedBrandName, forma, brands, isCard]);
+
+  const taxaCartao = activeBrandRow?.percentual ?? 0;
   const valorLiquido = isCard && taxaCartao > 0 ? total * (1 - taxaCartao / 100) : null;
 
-  const filteredBrands = brands.filter(b => {
-    if (forma === 'debito') return b.tipo === 'debito';
-    if (forma === 'credito') return b.tipo === 'credito_avista';
-    return false;
-  });
-
-  // Reset brand when forma changes to non-card
   const handleForma = (f: Forma) => {
     setForma(f);
-    if (f !== 'debito' && f !== 'credito') setSelectedBrand(null);
-    else setSelectedBrand(null);
+    setSelectedBrandName(null);
   };
 
   const canConfirm = () => {
@@ -496,7 +507,7 @@ function PaymentModal({ total, pixKey, brands, onConfirm }: {
     if (forma === 'misto') {
       onConfirm('misto', [{ forma: m1Forma, valor: m1Valor }, { forma: m2Forma, valor: m2Valor }]);
     } else {
-      onConfirm(forma, undefined, isCard && selectedBrand ? selectedBrand.percentual : undefined);
+      onConfirm(forma, undefined, isCard && activeBrandRow ? taxaCartao : undefined);
     }
   };
 
@@ -555,18 +566,18 @@ function PaymentModal({ total, pixKey, brands, onConfirm }: {
         </div>
       )}
 
-      {isCard && brands.length > 0 && (
+      {isCard && availableBrandNames.length > 0 && (
         <div>
           <label className="label">Bandeira do cartão (opcional)</label>
           <div className="flex flex-wrap gap-2">
-            {brands.map(b => (
+            {availableBrandNames.map(name => (
               <button
-                key={b.id}
-                onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
-                className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrand?.id === b.id ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
-                style={selectedBrand?.id === b.id ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : {}}
+                key={name}
+                onClick={() => setSelectedBrandName(selectedBrandName === name ? null : name)}
+                className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrandName === name ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
+                style={selectedBrandName === name ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : {}}
               >
-                {b.nome} <span className="text-muted text-xs">({b.percentual}%)</span>
+                {name}
               </button>
             ))}
           </div>

@@ -4,14 +4,19 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { useBarberSession } from '../lib/barber-session-context';
 import { toast } from 'sonner';
-import { Scissors, Lock } from 'lucide-react';
+import { Scissors, Lock, ShieldAlert } from 'lucide-react';
 
 export default function BarberLock() {
-  const { barbershop } = useAuth();
+  const { barbershop, session } = useAuth();
   const { setActiveBarber } = useBarberSession();
   const [selected, setSelected] = useState<{ id: string; nome: string; pin: string | null } | null>(null);
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Owner password gate
+  const [ownerGate, setOwnerGate] = useState(false);
+  const [ownerPass, setOwnerPass] = useState('');
+  const [ownerLoading, setOwnerLoading] = useState(false);
 
   const { data: barbers } = useQuery({
     queryKey: ['barbers-lock', barbershop?.id],
@@ -26,6 +31,23 @@ export default function BarberLock() {
       return data ?? [];
     },
   });
+
+  const handleOwnerEnter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user?.email) return;
+    setOwnerLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: session.user.email,
+      password: ownerPass,
+    });
+    setOwnerLoading(false);
+    if (error) {
+      toast.error('Senha incorreta');
+      setOwnerPass('');
+      return;
+    }
+    setActiveBarber({ id: 'owner', nome: 'Dono' });
+  };
 
   const handleEnter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,12 +153,42 @@ export default function BarberLock() {
         </div>
 
         <div className="border-t border-ink-800 pt-4">
-          <button
-            onClick={() => setActiveBarber({ id: 'owner', nome: 'Dono' })}
-            className="w-full text-xs text-ink-600 hover:text-ink-400 transition-colors py-2"
-          >
-            Entrar como dono (acesso completo)
-          </button>
+          {!ownerGate ? (
+            <button
+              onClick={() => setOwnerGate(true)}
+              className="w-full text-xs text-ink-600 hover:text-ink-400 transition-colors py-2"
+            >
+              Entrar como dono (acesso completo)
+            </button>
+          ) : (
+            <form onSubmit={handleOwnerEnter} className="space-y-3">
+              <div className="flex items-center gap-2 text-xs text-amber-400">
+                <ShieldAlert size={13} />
+                <span>Confirme sua senha de acesso</span>
+              </div>
+              <input
+                className="input text-center text-sm tracking-widest"
+                type="password"
+                placeholder="Senha do dono"
+                value={ownerPass}
+                onChange={e => setOwnerPass(e.target.value)}
+                autoFocus
+                required
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost flex-1 text-xs text-ink-500"
+                  onClick={() => { setOwnerGate(false); setOwnerPass(''); }}
+                >
+                  Cancelar
+                </button>
+                <button className="btn-primary flex-1 text-sm" disabled={ownerLoading}>
+                  {ownerLoading ? 'Verificando…' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

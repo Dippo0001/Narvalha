@@ -88,7 +88,8 @@ function Caixa() {
   const { barbershop } = useAuth();
   const [orderId, setOrderId] = useState<string | null>(null);
 
-  const { data } = useQuery({
+  // Cash movements for KPIs and manual entries (sangrias, etc.)
+  const { data: movements } = useQuery({
     queryKey: ['caixa', barbershop?.id],
     enabled: !!barbershop,
     queryFn: async () => {
@@ -99,32 +100,111 @@ function Caixa() {
       return (data ?? []) as CashMovement[];
     },
   });
-  const entradas = (data ?? []).filter(m => m.tipo === 'entrada').reduce((s, m) => s + Number(m.valor), 0);
-  const saidas   = (data ?? []).filter(m => m.tipo === 'saida').reduce((s, m) => s + Number(m.valor), 0);
+
+  // Orders for today — separate query so client name is visible
+  const { data: orders } = useQuery({
+    queryKey: ['orders-today', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const start = startOfDay(new Date()).toISOString();
+      const end   = endOfDay(new Date()).toISOString();
+      const { data } = await supabase.from('orders')
+        .select('id,total,desconto,forma_pagamento,status,fechada_em,barbers(nome_exibicao),clients(nome)')
+        .eq('barbershop_id', barbershop!.id)
+        .in('status', ['fechada', 'cancelada'])
+        .gte('fechada_em', start)
+        .lte('fechada_em', end)
+        .order('fechada_em', { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const entradas = (movements ?? []).filter(m => m.tipo === 'entrada').reduce((s, m) => s + Number(m.valor), 0);
+  const saidas   = (movements ?? []).filter(m => m.tipo === 'saida').reduce((s, m) => s + Number(m.valor), 0);
+  const manualMovements = (movements ?? []).filter(m => !m.ref_order_id);
+
   return (
-    <div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Kpi label="Entradas" value={formatBRL(entradas)} color="text-emerald-400" />
         <Kpi label="Saídas"   value={formatBRL(saidas)}   color="text-red-400" />
         <Kpi label="Saldo"    value={formatBRL(entradas - saidas)} />
       </div>
-      <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
-        {(!data || data.length === 0) && <div className="p-8 text-center text-muted text-sm">Nenhum movimento hoje</div>}
-        {(data ?? []).map((m) => (
-          <button key={m.id} 
-            onClick={() => m.ref_order_id && setOrderId(m.ref_order_id)}
-            className={`w-full flex items-center justify-between p-4 hover:bg-hover-soft transition-colors text-left ${m.ref_order_id ? 'cursor-pointer' : 'cursor-default'}`}
-          >
-            <div>
-              <div className="text-sm font-medium">{m.descricao || m.categoria}</div>
-              <div className="text-[10px] text-muted uppercase tracking-wider">{format(new Date(m.data), 'HH:mm')} {m.ref_order_id && '· Ver detalhes'}</div>
-            </div>
-            <div className={m.tipo === 'entrada' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
-              {m.tipo === 'entrada' ? '+' : '-'}{formatBRL(Number(m.valor))}
-            </div>
-          </button>
-        ))}
+
+      {/* ── Vendas do dia ── */}
+      <div>
+        <h3 className="text-xs font-bold text-muted uppercase tracking-widest mb-3">
+          Vendas do dia
+        </h3>
+        <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
+          {(!orders || orders.length === 0) && (
+            <div className="p-8 text-center text-muted text-sm">Nenhuma venda hoje</div>
+          )}
+          {(orders ?? []).map((o: any) => {
+            const isCancelled = o.status === 'cancelada';
+            const liquid = Number(o.total) - Number(o.desconto ?? 0);
+            return (
+              <button
+                key={o.id}
+                onClick={() => setOrderId(o.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-hover-soft transition-colors text-left ${isCancelled ? 'opacity-50' : ''}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">
+                      {(o as any).clients?.nome || 'Consumidor Final'}
+                    </span>
+                    {isCancelled && (
+                      <span className="text-[8px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest shrink-0">
+                        Cancelada
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted mt-0.5">
+                    {(o as any).barbers?.nome_exibicao}
+                    {' · '}
+                    {format(new Date(o.fechada_em), 'HH:mm')}
+                    {' · '}
+                    <span className="uppercase">{o.forma_pagamento}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`font-bold text-sm ${isCancelled ? 'line-through text-muted' : 'text-emerald-400'}`}>
+                    {formatBRL(liquid)}
+                  </span>
+                  <span className="text-[10px] text-muted border border-border rounded px-2 py-1 whitespace-nowrap">
+                    Ver / Editar
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* ── Outros movimentos de caixa (sangrias, entradas manuais) ── */}
+      {manualMovements.length > 0 && (
+        <div>
+          <h3 className="text-xs font-bold text-muted uppercase tracking-widest mb-3">
+            Outros movimentos
+          </h3>
+          <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
+            {manualMovements.map((m) => (
+              <div key={m.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium">{m.descricao || m.categoria}</div>
+                  <div className="text-[10px] text-muted uppercase tracking-wider">
+                    {format(new Date(m.data), 'HH:mm')}
+                  </div>
+                </div>
+                <div className={m.tipo === 'entrada' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                  {m.tipo === 'entrada' ? '+' : '-'}{formatBRL(Number(m.valor))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Modal open={!!orderId} onClose={() => setOrderId(null)} title="Detalhes da Venda">
         {orderId && <OrderDetails id={orderId} onClose={() => setOrderId(null)} />}

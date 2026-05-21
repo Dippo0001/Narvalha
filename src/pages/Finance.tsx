@@ -14,6 +14,7 @@ import {
   TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2,
   CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle,
   Clock, Camera, Copy, Smartphone, ChevronLeft, ChevronRight,
+  XCircle, RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CashMovement, CardBrand, CardBrandTipo } from '../types/db';
@@ -126,54 +127,147 @@ function Caixa() {
       </div>
 
       <Modal open={!!orderId} onClose={() => setOrderId(null)} title="Detalhes da Venda">
-        {orderId && <OrderDetails id={orderId} />}
+        {orderId && <OrderDetails id={orderId} onClose={() => setOrderId(null)} />}
       </Modal>
     </div>
   );
 }
 
-function OrderDetails({ id }: { id: string }) {
+function OrderDetails({ id, onClose }: { id: string; onClose?: () => void }) {
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [desconto, setDesconto] = useState(0);
+  const [formaPag, setFormaPag] = useState('');
+  const [saving, setSaving] = useState(false);
+
   const { data: order, isLoading } = useQuery({
     queryKey: ['order-details', id],
     queryFn: async () => {
-      const { data: o } = await supabase.from('orders').select('*, barbers(nome_exibicao), clients(nome)')
+      const { data: o } = await supabase.from('orders')
+        .select('*, barbers(nome_exibicao), clients(nome)')
         .eq('id', id).single();
       const { data: items } = await supabase.from('order_items').select('*').eq('order_id', id);
       return { ...o, items: items ?? [] };
-    }
+    },
   });
+
+  useEffect(() => {
+    if (order) {
+      setDesconto(Number(order.desconto));
+      setFormaPag(order.forma_pagamento ?? 'dinheiro');
+    }
+  }, [order?.id]);
+
+  const handleCancel = async () => {
+    if (!confirm('Cancelar esta venda? Os valores serão removidos do caixa do dia.')) return;
+    const { error } = await supabase.from('orders').update({ status: 'cancelada' }).eq('id', id);
+    if (error) return toast.error(error.message);
+    await supabase.from('cash_movements').delete().eq('ref_order_id', id);
+    qc.invalidateQueries();
+    toast.success('Venda cancelada');
+    onClose?.();
+  };
+
+  const handleSave = async () => {
+    if (desconto < 0 || desconto > Number(order?.total)) return toast.error('Desconto inválido.');
+    setSaving(true);
+    const liquid = Number(order.total) - desconto;
+    const [r1, r2] = await Promise.all([
+      supabase.from('orders').update({ desconto, forma_pagamento: formaPag }).eq('id', id),
+      supabase.from('cash_movements').update({ valor: liquid, categoria: formaPag }).eq('ref_order_id', id),
+    ]);
+    setSaving(false);
+    if (r1.error) return toast.error(r1.error.message);
+    if (r2.error) return toast.error(r2.error.message);
+    qc.invalidateQueries();
+    toast.success('Venda corrigida');
+    setMode('view');
+  };
 
   if (isLoading) return <div className="p-8 text-center animate-pulse">Carregando detalhes...</div>;
   if (!order) return <div className="p-8 text-center">Pedido não encontrado</div>;
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const isCancelled = order.status === 'cancelada';
+  const liquid = Number(order.total) - Number(order.desconto);
+
+  if (mode === 'edit') {
+    return (
+      <div className="space-y-5">
+        <p className="text-xs text-muted">Ajuste o desconto ou a forma de pagamento. Os itens não são alterados aqui.</p>
+        <div>
+          <label className="label">Desconto (R$)</label>
+          <input className="input" type="number" step="0.01" min={0} max={Number(order.total)}
+            value={desconto} onChange={e => setDesconto(+e.target.value)} autoFocus />
+        </div>
+        <div>
+          <label className="label">Forma de Pagamento</label>
+          <select className="input" value={formaPag} onChange={e => setFormaPag(e.target.value)}>
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="debito">Débito</option>
+            <option value="credito">Crédito</option>
+          </select>
+        </div>
+        <div className="p-3 bg-ink-900 rounded-lg flex justify-between text-sm border border-border">
+          <span className="text-muted">Novo total:</span>
+          <span className="font-bold text-ink-50">{formatBRL(Number(order.total) - desconto)}</span>
+        </div>
+        <div className="flex gap-2">
+          <button className="btn-ghost flex-1" onClick={() => setMode('view')}>Cancelar</button>
+          <button className="btn-primary flex-1" onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar correção'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 print:p-0">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex justify-between items-start border-b border-border pb-4">
         <div>
-          <h3 className="font-bold text-lg">Comanda #{order.id.slice(0,8)}</h3>
-          <p className="text-xs text-muted">{format(new Date(order.fechada_em), "dd/MM/yyyy 'às' HH:mm")}</p>
+          <h3 className="font-bold text-lg">Comanda #{order.id.slice(0, 8)}</h3>
+          <p className="text-xs text-muted">
+            {order.fechada_em
+              ? format(new Date(order.fechada_em), "dd/MM/yyyy 'às' HH:mm")
+              : '—'}
+          </p>
         </div>
         <div className="text-right">
-          <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold px-2 py-1 rounded uppercase">Pago</span>
+          {isCancelled
+            ? <span className="bg-red-500/10 text-red-400 text-[10px] font-bold px-2 py-1 rounded uppercase">Cancelada</span>
+            : <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold px-2 py-1 rounded uppercase">Pago</span>
+          }
           <p className="text-xs text-muted mt-1 uppercase tracking-tighter">{order.forma_pagamento}</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Client + Barber */}
+      <div className="grid grid-cols-2 gap-4 p-3 bg-ink-900/50 rounded-lg border border-border text-sm">
+        <div>
+          <div className="text-[10px] font-bold text-muted uppercase mb-1">Cliente</div>
+          <div className="font-medium">{order.clients?.nome || 'Consumidor Final'}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-bold text-muted uppercase mb-1">Profissional</div>
+          <div className="font-medium">{order.barbers?.nome_exibicao}</div>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="space-y-2">
         <div className="text-[10px] font-bold text-muted uppercase tracking-widest">Itens</div>
         {order.items.map((it: any) => (
           <div key={it.id} className="flex justify-between text-sm">
-            <span>{it.qtd}x {it.descricao}</span>
+            <span className="text-muted">{it.qtd}× {it.descricao}</span>
             <span className="font-medium">{formatBRL(Number(it.valor_total))}</span>
           </div>
         ))}
       </div>
 
-      <div className="space-y-2 pt-4 border-t border-border">
+      {/* Totals */}
+      <div className="space-y-2 pt-3 border-t border-border">
         <div className="flex justify-between text-sm text-muted">
           <span>Subtotal</span>
           <span>{formatBRL(Number(order.total))}</span>
@@ -184,28 +278,26 @@ function OrderDetails({ id }: { id: string }) {
             <span>-{formatBRL(Number(order.desconto))}</span>
           </div>
         )}
-        <div className="flex justify-between font-bold text-lg pt-2">
-          <span>Total</span>
-          <span>{formatBRL(Number(order.total) - Number(order.desconto))}</span>
+        <div className="flex justify-between font-bold text-base pt-1">
+          <span>Total pago</span>
+          <span>{formatBRL(liquid)}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-xs text-muted">
-        <div>
-          <div className="font-bold uppercase mb-1">Profissional</div>
-          <div>{order.barbers?.nome_exibicao}</div>
+      {/* Actions */}
+      {!isCancelled && (
+        <div className="flex gap-2 pt-2 border-t border-border">
+          <button onClick={() => setMode('edit')} className="btn-outline flex-1 gap-1.5 text-sm">
+            <RotateCcw size={14} /> Corrigir
+          </button>
+          <button
+            onClick={handleCancel}
+            className="flex-1 py-2 px-3 rounded-lg border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <XCircle size={14} /> Cancelar venda
+          </button>
         </div>
-        <div>
-          <div className="font-bold uppercase mb-1">Cliente</div>
-          <div>{order.clients?.nome || 'Consumidor Final'}</div>
-        </div>
-      </div>
-
-      <div className="flex gap-2 pt-4 print:hidden">
-        <button onClick={handlePrint} className="btn-outline flex-1 gap-2">
-          <CreditCard size={16} /> Re-imprimir Recibo
-        </button>
-      </div>
+      )}
     </div>
   );
 }
@@ -1180,24 +1272,33 @@ function BarberPayForm({ saldo, onSave }: { saldo: number; onSave: (v: any) => v
 function Relatorios() {
   const { barbershop } = useAuth();
   const [days, setDays] = useState(30);
+  const [orderId, setOrderId] = useState<string | null>(null);
+
   const { data } = useQuery({
     queryKey: ['report', barbershop?.id, days],
     enabled: !!barbershop,
     queryFn: async () => {
       const start = subDays(new Date(), days).toISOString();
       const { data } = await supabase.from('orders')
-        .select('id,total,desconto,forma_pagamento,fechada_em,barbers(nome_exibicao)')
-        .eq('barbershop_id', barbershop!.id).eq('status', 'fechada').gte('fechada_em', start).order('fechada_em', { ascending: false });
+        .select('id,total,desconto,forma_pagamento,status,fechada_em,barbers(nome_exibicao),clients(nome)')
+        .eq('barbershop_id', barbershop!.id)
+        .in('status', ['fechada', 'cancelada'])
+        .gte('fechada_em', start)
+        .order('fechada_em', { ascending: false });
       return data ?? [];
     },
   });
-  const total = (data ?? []).reduce((s, o: any) => s + Number(o.total) - Number(o.desconto ?? 0), 0);
+  const total = (data ?? [])
+    .filter((o: any) => o.status === 'fechada')
+    .reduce((s, o: any) => s + Number(o.total) - Number(o.desconto ?? 0), 0);
 
   const exportCsv = () => {
-    const rows = [['Data', 'Barbeiro', 'Total', 'Desconto', 'Pagamento']];
+    const rows = [['Data', 'Cliente', 'Barbeiro', 'Total', 'Desconto', 'Pagamento', 'Status']];
     (data ?? []).forEach((o: any) => rows.push([
       format(new Date(o.fechada_em), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-      o.barbers?.nome_exibicao ?? '', String(o.total), String(o.desconto), o.forma_pagamento,
+      o.clients?.nome || 'Consumidor Final',
+      o.barbers?.nome_exibicao ?? '',
+      String(o.total), String(o.desconto), o.forma_pagamento, o.status,
     ]));
     const csv = rows.map(r => r.join(';')).join('\n');
     const a = document.createElement('a');
@@ -1210,25 +1311,52 @@ function Relatorios() {
     <div>
       <div className="flex gap-2 mb-4">
         <select className="input w-auto" value={days} onChange={e => setDays(+e.target.value)}>
-          <option value={7}>7 dias</option><option value={30}>30 dias</option><option value={90}>90 dias</option>
+          <option value={7}>7 dias</option>
+          <option value={30}>30 dias</option>
+          <option value={90}>90 dias</option>
         </select>
         <button className="btn-outline" onClick={exportCsv}>Exportar CSV</button>
       </div>
       <div className="card p-6 mb-4">
-        <div className="text-xs text-muted uppercase tracking-wide">Faturamento no período</div>
+        <div className="text-xs text-muted uppercase tracking-wide">Faturamento no período (excl. canceladas)</div>
         <div className="text-3xl font-semibold mt-1">{formatBRL(total)}</div>
       </div>
-      <div className="card divide-y max-h-96 overflow-auto" style={{ borderColor: 'var(--border)' }}>
-        {(data ?? []).map((o: any) => (
-          <div key={o.id} className="flex items-center justify-between p-3 text-sm">
-            <div>
-              <div className="font-medium">{o.barbers?.nome_exibicao}</div>
-              <div className="text-xs text-muted">{format(new Date(o.fechada_em), 'dd/MM HH:mm')} · {o.forma_pagamento}</div>
-            </div>
-            <div>{formatBRL(Number(o.total) - Number(o.desconto ?? 0))}</div>
-          </div>
-        ))}
+      <div className="card divide-y max-h-[32rem] overflow-auto" style={{ borderColor: 'var(--border)' }}>
+        {(data ?? []).map((o: any) => {
+          const isCancelled = o.status === 'cancelada';
+          return (
+            <button
+              key={o.id}
+              onClick={() => setOrderId(o.id)}
+              className={`w-full flex items-center justify-between p-3 text-sm hover:bg-hover-soft transition-colors text-left ${isCancelled ? 'opacity-50' : ''}`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium truncate">
+                    {o.clients?.nome || 'Consumidor Final'}
+                  </span>
+                  {isCancelled && (
+                    <span className="text-[8px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest shrink-0">
+                      Cancelada
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted mt-0.5">
+                  {o.barbers?.nome_exibicao} · {format(new Date(o.fechada_em), 'dd/MM HH:mm')} · {o.forma_pagamento}
+                </div>
+              </div>
+              <div className={`font-medium shrink-0 ml-4 ${isCancelled ? 'line-through text-muted' : ''}`}>
+                {formatBRL(Number(o.total) - Number(o.desconto ?? 0))}
+              </div>
+            </button>
+          );
+        })}
+        {(data ?? []).length === 0 && <Empty text="Nenhuma venda no período" />}
       </div>
+
+      <Modal open={!!orderId} onClose={() => setOrderId(null)} title="Detalhes da Venda">
+        {orderId && <OrderDetails id={orderId} onClose={() => setOrderId(null)} />}
+      </Modal>
     </div>
   );
 }

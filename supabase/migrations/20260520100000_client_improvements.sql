@@ -26,8 +26,8 @@ ALTER TABLE card_brands ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "card_brands_rw" ON card_brands;
 CREATE POLICY "card_brands_rw" ON card_brands
-  USING  (barbershop_id = ANY(user_barbershops()))
-  WITH CHECK (barbershop_id = ANY(user_barbershops()));
+  USING  (barbershop_id IN (SELECT user_barbershops()))
+  WITH CHECK (barbershop_id IN (SELECT user_barbershops()));
 
 -- 3. Bandeira na order (qual bandeira foi usada no cartão)
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS bandeira text;

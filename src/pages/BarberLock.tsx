@@ -31,12 +31,6 @@ export default function BarberLock() {
     e.preventDefault();
     if (!selected) return;
 
-    // Barbeiro sem PIN cadastrado → acesso direto (dono configurou depois)
-    if (!selected.pin) {
-      setActiveBarber({ id: selected.id, nome: selected.nome });
-      return;
-    }
-
     setLoading(true);
     if (pin !== selected.pin) {
       setLoading(false);
@@ -105,18 +99,24 @@ export default function BarberLock() {
           {(barbers ?? []).map((b: any) => (
             <button
               key={b.id}
-              onClick={() => setSelected({ id: b.id, nome: b.nome_exibicao, pin: b.barber_pin })}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border border-ink-800 hover:bg-ink-800/50 transition-all text-left"
+              onClick={() => {
+                if (!b.barber_pin) {
+                  toast.error(`${b.nome_exibicao} não tem PIN. Configure em Configurações → Equipe.`);
+                  return;
+                }
+                setSelected({ id: b.id, nome: b.nome_exibicao, pin: b.barber_pin });
+              }}
+              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${b.barber_pin ? 'border-ink-800 hover:bg-ink-800/50' : 'border-ink-800/40 opacity-50 cursor-not-allowed'}`}
             >
               <div className="w-10 h-10 rounded-full bg-ink-700 flex items-center justify-center text-lg font-bold shrink-0">
                 {b.nome_exibicao.charAt(0)}
               </div>
               <div className="flex-1">
                 <div className="font-medium text-ink-50">{b.nome_exibicao}</div>
-                <div className="text-xs text-ink-500 flex items-center gap-1 mt-0.5">
+                <div className="text-xs flex items-center gap-1 mt-0.5">
                   {b.barber_pin
-                    ? <><Lock size={10} /> PIN configurado</>
-                    : <span className="text-amber-500">Sem PIN — contate o dono</span>
+                    ? <span className="text-ink-500"><Lock size={10} className="inline mr-0.5" />PIN configurado</span>
+                    : <span className="text-amber-500">Sem PIN — configure em Configurações</span>
                   }
                 </div>
               </div>

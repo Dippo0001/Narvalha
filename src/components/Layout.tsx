@@ -3,10 +3,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Megaphone, Package, Wallet,
   Settings, LogOut, Sun, Moon, Store, ShoppingCart,
-  Menu, X, ChevronDown, Plus
+  Menu, X, ChevronDown, Plus, UserCog,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
+import { useBarberSession } from '../lib/barber-session-context';
 import SubscriptionAlerts from './SubscriptionAlerts';
 
 const nav = [
@@ -107,6 +108,7 @@ function StoreSwitcher({ closeMenu }: { closeMenu: () => void }) {
 
 export default function Layout() {
   const { signOut, barbershop } = useAuth();
+  const { clearBarber } = useBarberSession();
   const isDemo = barbershop?.is_demo === true;
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
@@ -176,7 +178,14 @@ export default function Layout() {
             {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
           </button>
           <button
-            onClick={async () => { await signOut(); navigate('/login'); }}
+            onClick={() => { clearBarber(); closeMenu(); }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted hover:bg-hover-soft transition-colors"
+          >
+            <UserCog size={16} strokeWidth={1.75} />
+            Trocar usuário
+          </button>
+          <button
+            onClick={async () => { clearBarber(); await signOut(); navigate('/login'); }}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-400 hover:bg-red-400/10 transition-colors"
           >
             <LogOut size={16} strokeWidth={1.75} />

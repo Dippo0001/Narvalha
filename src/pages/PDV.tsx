@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
@@ -52,8 +52,6 @@ export default function PDV({ barberId: presetBarberId }: { barberId?: string })
   const [prodSearch, setProdSearch] = useState('');
   const [cancelModal, setCancelModal] = useState(false);
   const [doneInfo, setDoneInfo] = useState<{ total: number; telefone: string } | null>(null);
-  // Selected card brand fee (for commission deduction)
-  const [cardBrandFee, setCardBrandFee] = useState(0);
 
   // barbers
   const { data: barbers } = useQuery({
@@ -136,7 +134,8 @@ export default function PDV({ barberId: presetBarberId }: { barberId?: string })
 
   const resetAll = () => {
     setStep('idle');
-    setVendaState({ client: null, barberId: null });
+    // Em modo barbeiro mantém o barbeiro pré-selecionado
+    setVendaState({ client: null, barberId: presetBarberId ?? null });
     setCart([]);
     setDesconto(0);
     setSvcSearch('');
@@ -519,10 +518,7 @@ export default function PDV({ barberId: presetBarberId }: { barberId?: string })
         barbershopId={barbershop?.id ?? ''}
         pixMethod={pixMethod}
         onBack={() => setStep('venda')}
-        onConfirm={(forma, subForma, pagoValor, bandeira, bandeiraTaxa) => {
-          setCardBrandFee(bandeiraTaxa ?? 0);
-          finalize(forma, subForma, pagoValor, bandeira, bandeiraTaxa);
-        }}
+        onConfirm={finalize}
       />
       <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
     </div>

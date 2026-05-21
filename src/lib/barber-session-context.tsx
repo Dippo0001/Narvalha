@@ -11,6 +11,17 @@ interface BarberSessionCtx {
   clearBarber: () => void;
 }
 
+const STORAGE_KEY = 'narvalha_barber_session';
+
+function readSession(): ActiveBarber | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 const Ctx = createContext<BarberSessionCtx>({
   activeBarber: null,
   setActiveBarber: () => {},
@@ -18,10 +29,18 @@ const Ctx = createContext<BarberSessionCtx>({
 });
 
 export function BarberSessionProvider({ children }: { children: ReactNode }) {
-  const [activeBarber, setActiveBarberState] = useState<ActiveBarber | null>(null);
+  const [activeBarber, setActiveBarberState] = useState<ActiveBarber | null>(readSession);
 
-  const setActiveBarber = (b: ActiveBarber | null) => setActiveBarberState(b);
-  const clearBarber = () => setActiveBarberState(null);
+  const setActiveBarber = (b: ActiveBarber | null) => {
+    setActiveBarberState(b);
+    if (b) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+    else sessionStorage.removeItem(STORAGE_KEY);
+  };
+
+  const clearBarber = () => {
+    setActiveBarberState(null);
+    sessionStorage.removeItem(STORAGE_KEY);
+  };
 
   return (
     <Ctx.Provider value={{ activeBarber, setActiveBarber, clearBarber }}>

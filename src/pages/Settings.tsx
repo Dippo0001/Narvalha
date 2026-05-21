@@ -359,7 +359,13 @@ function BarbersTab({ qc }: any) {
 
   const save = async (form: any) => {
     if (!barbershop) return;
-    const payload = { ...form, barbershop_id: barbershop.id };
+    // Campos opcionais: salvar como NULL se vazio (não string vazia)
+    const payload = {
+      ...form,
+      barbershop_id: barbershop.id,
+      barber_login: form.barber_login?.trim() || null,
+      barber_pin:   form.barber_pin?.trim()   || null,
+    };
     const { error } = modal === 'new'
       ? await supabase.from('barbers').insert(payload)
       : await supabase.from('barbers').update(payload).eq('id', (modal as Barber).id);

@@ -21,6 +21,9 @@ export interface Barbershop {
   paid_until: string | null;
   fidelidade_meta: number;
   caixa_as_cegas: boolean;
+  comissao_frequencia: string;
+  comissao_dia_pagamento: string;
+  stripe_customer_id: string | null;
   parent_barbershop_id: string | null;
   is_demo: boolean;
 }

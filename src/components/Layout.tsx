@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../lib/auth-context';
 import { useTheme } from '../lib/theme';
 import { useBarberSession } from '../lib/barber-session-context';
+import { useIsSimulator } from '../lib/simulator-context';
 import SubscriptionAlerts from './SubscriptionAlerts';
 
 const nav = [
@@ -109,7 +110,8 @@ function StoreSwitcher({ closeMenu }: { closeMenu: () => void }) {
 export default function Layout() {
   const { signOut, barbershop } = useAuth();
   const { clearBarber } = useBarberSession();
-  const isDemo = barbershop?.is_demo === true;
+  const isSimulator = useIsSimulator();
+  const isDemo = barbershop?.is_demo === true && !isSimulator;
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);

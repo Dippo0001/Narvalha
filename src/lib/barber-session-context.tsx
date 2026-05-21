@@ -28,8 +28,17 @@ const Ctx = createContext<BarberSessionCtx>({
   clearBarber: () => {},
 });
 
-export function BarberSessionProvider({ children }: { children: ReactNode }) {
-  const [activeBarber, setActiveBarberState] = useState<ActiveBarber | null>(readSession);
+export function BarberSessionProvider({
+  children,
+  initialBarber,
+}: {
+  children: ReactNode;
+  /** When provided, skips sessionStorage and starts with this value (used by simulator). */
+  initialBarber?: ActiveBarber | null;
+}) {
+  const [activeBarber, setActiveBarberState] = useState<ActiveBarber | null>(
+    initialBarber !== undefined ? initialBarber : readSession,
+  );
 
   const setActiveBarber = (b: ActiveBarber | null) => {
     setActiveBarberState(b);

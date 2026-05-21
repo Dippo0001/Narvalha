@@ -25,6 +25,7 @@ import CaixaFechar from './pages/CaixaFechar';
 import CaixaHistorico from './pages/CaixaHistorico';
 import SubscriptionBlocked from './pages/SubscriptionBlocked';
 import SaaSAdmin from './pages/SaaSAdmin';
+import SimulatorShell from './components/SimulatorShell';
 import NovaFilial from './pages/NovaFilial';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -65,6 +66,7 @@ function AppRoutes() {
     }
     return (
       <Routes>
+        <Route path="/simulador" element={<SimulatorShell />} />
         <Route path="/" element={<SaaSAdmin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

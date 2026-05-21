@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
@@ -9,7 +10,7 @@ import {
   Store, Users, TrendingUp, ShieldAlert,
   CheckCircle2, Clock, Search, X, ChevronRight,
   Activity, LayoutDashboard, LogOut, FlaskConical, ExternalLink,
-  RotateCcw, Trash2,
+  RotateCcw, Trash2, Monitor,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,8 +24,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function SaaSAdmin() {
-  const { isAdmin, signOut } = useAuth();
+  const { isAdmin, signOut, barbershops } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
+  const demoShop = (barbershops as any[]).find(s => s.is_demo);
   const [tab, setTab] = useState<Tab>('overview');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -93,14 +96,31 @@ export default function SaaSAdmin() {
   return (
     <div className="min-h-screen bg-ink-950 flex flex-col">
       {/* Top bar */}
-      <header className="border-b border-ink-900 px-6 py-3 flex items-center justify-between">
+      <header className="border-b border-ink-900 px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="logo text-2xl text-ink-50">Navalha</span>
           <span className="text-xs text-ink-600 uppercase tracking-widest border border-ink-800 rounded px-2 py-0.5">Admin</span>
         </div>
-        <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-ink-200 transition-colors">
-          <LogOut size={13} /> Sair
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Simulador button */}
+          <button
+            onClick={() => navigate('/simulador')}
+            title={demoShop ? `Simular app — ${demoShop.nome}` : 'Crie uma conta teste para usar o simulador'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              demoShop
+                ? 'bg-violet-900/40 text-violet-300 hover:bg-violet-900/70 border border-violet-800/50'
+                : 'text-ink-600 border border-ink-800 cursor-not-allowed opacity-50'
+            }`}
+            disabled={!demoShop}
+          >
+            <Monitor size={13} />
+            Simulador
+            {demoShop && <span className="text-violet-500 text-[10px]">Platina</span>}
+          </button>
+          <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-ink-200 transition-colors">
+            <LogOut size={13} /> Sair
+          </button>
+        </div>
       </header>
 
       {/* Tab nav */}
@@ -335,7 +355,7 @@ export default function SaaSAdmin() {
         )}
 
         {/* ── CONTA TESTE ── */}
-        {tab === 'test' && <TestAccountTab shops={shops} qc={qc} />}
+        {tab === 'test' && <TestAccountTab shops={shops} qc={qc} onOpenSimulator={() => navigate('/simulador')} />}
 
         {/* ── ATIVIDADE ── */}
         {tab === 'activity' && (
@@ -407,7 +427,7 @@ function StatusDot({ status }: { status: string }) {
   return <span className={`w-2 h-2 rounded-full shrink-0 ${color[status] ?? 'bg-ink-600'}`} title={STATUS_LABEL[status]} />;
 }
 
-function TestAccountTab({ shops, qc }: { shops: any[]; qc: any }) {
+function TestAccountTab({ shops, qc, onOpenSimulator }: { shops: any[]; qc: any; onOpenSimulator: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const demoShop = shops.find((s: any) => s.is_demo);
 
@@ -486,14 +506,22 @@ function TestAccountTab({ shops, qc }: { shops: any[]; qc: any }) {
                 <div className="text-base font-semibold mt-1">{demoShop.nome}</div>
                 <div className="text-xs text-ink-500">/{demoShop.slug}</div>
               </div>
-              <a
-                href="https://narvalha.com.br"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-              >
-                Abrir app <ExternalLink size={12} />
-              </a>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={onOpenSimulator}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-violet-900/40 text-violet-300 hover:bg-violet-900/70 border border-violet-800/50 transition-colors"
+                >
+                  <Monitor size={12} /> Abrir simulador
+                </button>
+                <a
+                  href="https://narvalha.com.br"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  narvalha.com.br <ExternalLink size={12} />
+                </a>
+              </div>
             </div>
           </div>
 

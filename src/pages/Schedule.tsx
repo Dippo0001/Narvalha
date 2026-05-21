@@ -35,7 +35,13 @@ export default function Schedule() {
   const [apptModal, setApptModal] = useState<Appointment | null>(null);
 
   const copyPublicLink = () => {
-    toast.info('Página de agendamento público em breve!');
+    if (!barbershop?.slug) return toast.error('Configure o slug da barbearia em Configurações.');
+    const url = `${window.location.origin}/b/${barbershop.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copiado! Compartilhe com seus clientes.');
+    }).catch(() => {
+      toast.info(url);
+    });
   };
 
   const { data: barbers } = useQuery({

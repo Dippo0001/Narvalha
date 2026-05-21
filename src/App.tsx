@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth-context';
 import { useBarberSession, BarberSessionProvider } from './lib/barber-session-context';
 import { CashProvider } from './lib/cash-context';
 import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
+import PublicBooking from './pages/PublicBooking';
 import AdminLogin from './pages/AdminLogin';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -35,7 +36,17 @@ import CookieBanner from './components/CookieBanner';
 function AppRoutes() {
   const { session, loading, member, barbershop, isAdmin, isRecovery } = useAuth();
   const { activeBarber } = useBarberSession();
+  const { pathname } = useLocation();
   const isAdminSubdomain = window.location.hostname === 'admin.narvalha.com.br';
+
+  // Public booking page — accessible without authentication
+  if (pathname.startsWith('/b/')) {
+    return (
+      <Routes>
+        <Route path="/b/:slug" element={<PublicBooking />} />
+      </Routes>
+    );
+  }
 
   if (loading) {
     return (

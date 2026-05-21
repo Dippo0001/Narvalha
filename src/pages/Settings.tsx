@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
-import { Plus, CheckCircle2, CreditCard, Sparkles, KeyRound } from 'lucide-react';
+import { Plus, CheckCircle2, CreditCard, Sparkles, KeyRound, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { maskPhone, isValidPhone } from '../lib/utils';
 import type { Barber } from '../types/db';
@@ -82,6 +82,7 @@ export default function Settings() {
           </form>
 
           <ChangePasswordSection />
+          <OwnerPinSection />
         </div>
       )}
       {tab === 'regras' && (
@@ -441,14 +442,17 @@ function ChangePasswordSection() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <KeyRound size={16} className="text-ink-500" />
-          <span className="text-sm font-medium text-ink-100">Senha de acesso</span>
+          <div>
+            <span className="text-sm font-medium text-ink-100">Senha geral</span>
+            <p className="text-[10px] text-ink-500 mt-0.5">Usada para fazer login com e-mail</p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
           className="text-xs text-ink-400 hover:text-ink-100 transition-colors"
         >
-          {open ? 'Cancelar' : 'Alterar senha'}
+          {open ? 'Cancelar' : 'Alterar'}
         </button>
       </div>
 
@@ -478,7 +482,103 @@ function ChangePasswordSection() {
             />
           </div>
           <button className="btn-primary" disabled={loading}>
-            {loading ? 'Salvando…' : 'Salvar nova senha'}
+            {loading ? 'Salvando…' : 'Salvar senha geral'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function OwnerPinSection() {
+  const { barbershop, refresh } = useAuth();
+  const [pin, setPin] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const hasPin = !!barbershop?.owner_pin;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin !== confirm) return toast.error('As senhas não coincidem.');
+    if (pin.length < 4) return toast.error('A senha do dono deve ter pelo menos 4 caracteres.');
+    setLoading(true);
+    const { error } = await supabase
+      .from('barbershops')
+      .update({ owner_pin: pin })
+      .eq('id', barbershop!.id);
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success('Senha do dono salva!');
+    await refresh();
+    setPin('');
+    setConfirm('');
+    setOpen(false);
+  };
+
+  return (
+    <div className="card p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={16} className="text-amber-500" />
+          <div>
+            <span className="text-sm font-medium text-ink-100">Senha do dono</span>
+            <p className="text-[10px] text-ink-500 mt-0.5">
+              Usada para "Entrar como dono" na tela de seleção de barbeiros
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasPin && (
+            <span className="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest">
+              Configurada
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(v => !v)}
+            className="text-xs text-ink-400 hover:text-ink-100 transition-colors"
+          >
+            {open ? 'Cancelar' : hasPin ? 'Alterar' : 'Configurar'}
+          </button>
+        </div>
+      </div>
+
+      {!hasPin && !open && (
+        <p className="text-xs text-amber-400/80 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2">
+          Sem senha do dono configurada — o acesso de dono usa a senha geral de login como fallback.
+        </p>
+      )}
+
+      {open && (
+        <form onSubmit={handleSubmit} className="space-y-3 pt-2 border-t border-ink-800">
+          <div>
+            <label className="label">Nova senha do dono</label>
+            <input
+              className="input"
+              type="password"
+              value={pin}
+              onChange={e => setPin(e.target.value)}
+              minLength={4}
+              placeholder="Mínimo 4 caracteres"
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="label">Confirmar senha do dono</label>
+            <input
+              className="input"
+              type="password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              minLength={4}
+              required
+            />
+          </div>
+          <button className="btn-primary" disabled={loading}>
+            {loading ? 'Salvando…' : 'Salvar senha do dono'}
           </button>
         </form>
       )}

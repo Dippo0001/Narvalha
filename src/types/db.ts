@@ -26,6 +26,7 @@ export interface Barbershop {
   stripe_customer_id: string | null;
   parent_barbershop_id: string | null;
   is_demo: boolean;
+  owner_pin: string | null;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {

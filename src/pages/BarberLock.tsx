@@ -34,8 +34,23 @@ export default function BarberLock() {
 
   const handleOwnerEnter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.email) return;
     setOwnerLoading(true);
+
+    // Use the dedicated owner_pin if configured
+    if (barbershop?.owner_pin) {
+      const ok = ownerPass === barbershop.owner_pin;
+      setOwnerLoading(false);
+      if (!ok) {
+        toast.error('Senha do dono incorreta');
+        setOwnerPass('');
+        return;
+      }
+      setActiveBarber({ id: 'owner', nome: 'Dono' });
+      return;
+    }
+
+    // Fallback: no owner_pin set yet — use Supabase auth password
+    if (!session?.user?.email) { setOwnerLoading(false); return; }
     const { error } = await supabase.auth.signInWithPassword({
       email: session.user.email,
       password: ownerPass,
@@ -164,12 +179,16 @@ export default function BarberLock() {
             <form onSubmit={handleOwnerEnter} className="space-y-3">
               <div className="flex items-center gap-2 text-xs text-amber-400">
                 <ShieldAlert size={13} />
-                <span>Confirme sua senha de acesso</span>
+                <span>
+                  {barbershop?.owner_pin
+                    ? 'Digite a senha do dono'
+                    : 'Digite sua senha de login (nenhuma senha do dono configurada)'}
+                </span>
               </div>
               <input
                 className="input text-center text-sm tracking-widest"
                 type="password"
-                placeholder="Senha do dono"
+                placeholder={barbershop?.owner_pin ? 'Senha do dono' : 'Senha de login'}
                 value={ownerPass}
                 onChange={e => setOwnerPass(e.target.value)}
                 autoFocus

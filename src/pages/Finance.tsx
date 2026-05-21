@@ -7,16 +7,16 @@ import Modal from '../components/Modal';
 import { formatBRL } from '../lib/utils';
 import {
   startOfDay, endOfDay, subDays, format, isPast, isToday, parseISO,
-  addDays, setDate, setDay, nextDay, startOfMonth, endOfMonth,
+  addDays, setDate, setDay, startOfMonth, endOfMonth, addMonths, subMonths,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2, 
-  CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, 
-  Clock, Camera, Copy, Smartphone 
+import {
+  TrendingUp, TrendingDown, Wallet, Users as Users2, BarChart2,
+  CreditCard, Plus, Pencil, Trash2, CheckCircle2, AlertCircle,
+  Clock, Camera, Copy, Smartphone, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CashMovement } from '../types/db';
+import type { CashMovement, CardBrand } from '../types/db';
 
 type Tab = 'caixa' | 'comissoes' | 'relatorios' | 'pagar' | 'receber' | 'formas';
 
@@ -213,6 +213,7 @@ function ContasPagar() {
   const qc = useQueryClient();
   const [modal, setModal] = useState<any | 'new' | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'pago' | 'vencido'>('todos');
+  const [mesBase, setMesBase] = useState(() => startOfMonth(new Date()));
 
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['contas_pagar_full', barbershop?.id],
@@ -285,7 +286,13 @@ function ContasPagar() {
     },
   });
 
-  const contas = (rawData ?? []).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  const mesInicio = startOfMonth(mesBase).toISOString().slice(0, 10);
+  const mesFim    = endOfMonth(mesBase).toISOString().slice(0, 10);
+
+  const contas = (rawData ?? [])
+    .filter((c: any) => c.vencimento >= mesInicio && c.vencimento <= mesFim)
+    .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+
   const visivel = contas.filter((c: any) => filtro === 'todos' || c.status === filtro);
   const totPendente = contas.filter((c: any) => c.status === 'pendente').reduce((s: number, c: any) => s + Number(c.valor), 0);
   const totPago = contas.filter((c: any) => c.status === 'pago').reduce((s: number, c: any) => s + Number(c.valor), 0);
@@ -341,9 +348,22 @@ function ContasPagar() {
 
   return (
     <>
+      {/* Navegador de mês */}
+      <div className="flex items-center justify-between mb-5 p-3 rounded-xl bg-ink-900 border border-ink-800">
+        <button onClick={() => setMesBase(subMonths(mesBase, 1))} className="btn-ghost p-2">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-semibold capitalize">
+          {format(mesBase, 'MMMM yyyy', { locale: ptBR })}
+        </span>
+        <button onClick={() => setMesBase(addMonths(mesBase, 1))} className="btn-ghost p-2">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 mb-5">
         <Kpi label="A pagar (pendente)" value={formatBRL(totPendente)} color="text-red-400" />
-        <Kpi label="Pago no período"    value={formatBRL(totPago)} color="text-emerald-400" />
+        <Kpi label="Pago no mês"        value={formatBRL(totPago)} color="text-emerald-400" />
       </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
@@ -411,8 +431,9 @@ function ContasReceber() {
   const qc = useQueryClient();
   const [modal, setModal] = useState<any | 'new' | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'recebido' | 'vencido'>('todos');
+  const [mesBase, setMesBase] = useState(() => startOfMonth(new Date()));
 
-  const { data: contas, isLoading } = useQuery({
+  const { data: rawContas, isLoading } = useQuery({
     queryKey: ['contas_receber', barbershop?.id],
     enabled: !!barbershop,
     queryFn: async () => {
@@ -422,9 +443,13 @@ function ContasReceber() {
     },
   });
 
-  const visivel = (contas ?? []).filter((c: any) => filtro === 'todos' || c.status === filtro);
-  const totPendente = (contas ?? []).filter((c: any) => c.status === 'pendente').reduce((s: number, c: any) => s + Number(c.valor), 0);
-  const totRecebido = (contas ?? []).filter((c: any) => c.status === 'recebido').reduce((s: number, c: any) => s + Number(c.valor), 0);
+  const mesInicio = startOfMonth(mesBase).toISOString().slice(0, 10);
+  const mesFim    = endOfMonth(mesBase).toISOString().slice(0, 10);
+  const contas = (rawContas ?? []).filter((c: any) => c.vencimento >= mesInicio && c.vencimento <= mesFim);
+
+  const visivel = contas.filter((c: any) => filtro === 'todos' || c.status === filtro);
+  const totPendente = contas.filter((c: any) => c.status === 'pendente').reduce((s: number, c: any) => s + Number(c.valor), 0);
+  const totRecebido = contas.filter((c: any) => c.status === 'recebido').reduce((s: number, c: any) => s + Number(c.valor), 0);
 
   const save = async (form: any) => {
     if (!barbershop) return;
@@ -459,9 +484,22 @@ function ContasReceber() {
 
   return (
     <>
+      {/* Navegador de mês */}
+      <div className="flex items-center justify-between mb-5 p-3 rounded-xl bg-ink-900 border border-ink-800">
+        <button onClick={() => setMesBase(subMonths(mesBase, 1))} className="btn-ghost p-2">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-semibold capitalize">
+          {format(mesBase, 'MMMM yyyy', { locale: ptBR })}
+        </span>
+        <button onClick={() => setMesBase(addMonths(mesBase, 1))} className="btn-ghost p-2">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 mb-5">
         <Kpi label="A receber (pendente)" value={formatBRL(totPendente)} color="text-amber-400" />
-        <Kpi label="Recebido no período"  value={formatBRL(totRecebido)} color="text-emerald-400" />
+        <Kpi label="Recebido no mês"      value={formatBRL(totRecebido)} color="text-emerald-400" />
       </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
@@ -670,7 +708,107 @@ function FormasPagamento() {
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova forma de pagamento' : `Editar ${modal?.nome}`}>
         {modal !== null && <PaymentMethodForm initial={modal === 'new' ? null : modal} onSave={save} />}
       </Modal>
+
+      {/* Taxas por Bandeira */}
+      <CardBrandsSection />
     </>
+  );
+}
+
+/* ─── Taxas por Bandeira ────────────────────────────────────────── */
+function CardBrandsSection() {
+  const { barbershop } = useAuth();
+  const qc = useQueryClient();
+  const [modal, setModal] = useState<CardBrand | 'new' | null>(null);
+
+  const { data: brands, isLoading } = useQuery({
+    queryKey: ['card_brands', barbershop?.id],
+    enabled: !!barbershop,
+    queryFn: async () => {
+      const { data } = await supabase.from('card_brands').select('*')
+        .eq('barbershop_id', barbershop!.id).order('nome');
+      return (data ?? []) as CardBrand[];
+    },
+  });
+
+  const save = async (form: { nome: string; percentual: number }) => {
+    if (!barbershop) return;
+    const payload = { ...form, barbershop_id: barbershop.id };
+    const { error } = modal === 'new'
+      ? await supabase.from('card_brands').insert(payload)
+      : await supabase.from('card_brands').update(payload).eq('id', (modal as CardBrand).id);
+    if (error) return toast.error(error.message);
+    toast.success('Bandeira salva');
+    qc.invalidateQueries({ queryKey: ['card_brands'] });
+    setModal(null);
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Excluir bandeira?')) return;
+    await supabase.from('card_brands').delete().eq('id', id);
+    qc.invalidateQueries({ queryKey: ['card_brands'] });
+  };
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-bold text-ink-50">Taxas por Bandeira de Cartão</h3>
+          <p className="text-xs text-ink-500 mt-0.5">A taxa é descontada do valor bruto antes de calcular a comissão do barbeiro.</p>
+        </div>
+        <button className="btn-primary" onClick={() => setModal('new')}><Plus size={14} /> Nova bandeira</button>
+      </div>
+
+      <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
+        {isLoading && <Skeleton />}
+        {!isLoading && (brands ?? []).length === 0 && (
+          <Empty text="Nenhuma bandeira cadastrada — as comissões incidem sobre o valor bruto" />
+        )}
+        {(brands ?? []).map((b) => (
+          <div key={b.id} className="flex items-center justify-between px-4 py-3 hover:bg-hover-soft transition-colors">
+            <div>
+              <div className="text-sm font-medium">{b.nome}</div>
+              <div className="text-xs text-muted">Taxa: {b.percentual}%</div>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => setModal(b)} className="btn-ghost px-2 py-1.5"><Pencil size={13} /></button>
+              <button onClick={() => remove(b.id)} className="btn-ghost px-2 py-1.5 text-red-400"><Trash2 size={13} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Nova bandeira' : 'Editar bandeira'}>
+        {modal !== null && (
+          <CardBrandForm
+            initial={modal === 'new' ? null : modal as CardBrand}
+            onSave={save}
+          />
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function CardBrandForm({ initial, onSave }: { initial: CardBrand | null; onSave: (v: any) => void }) {
+  const [nome, setNome] = useState(initial?.nome ?? '');
+  const [percentual, setPercentual] = useState(Number(initial?.percentual ?? 0));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSave({ nome, percentual }); }} className="space-y-4">
+      <div>
+        <label className="label">Nome da bandeira</label>
+        <input className="input" value={nome} onChange={e => setNome(e.target.value)} required autoFocus placeholder="Ex: Visa, Mastercard, Elo" />
+      </div>
+      <div>
+        <label className="label">Taxa da adquirente (%)</label>
+        <input className="input" type="number" step="0.01" min={0} max={20} value={percentual}
+          onChange={e => setPercentual(+e.target.value)} required />
+        <p className="text-xs text-ink-500 mt-1">
+          Ex: 1.5% → venda de R$100 = R$98,50 líquido para comissão.
+        </p>
+      </div>
+      <button className="btn-primary w-full">Salvar</button>
+    </form>
   );
 }
 

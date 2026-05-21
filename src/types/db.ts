@@ -28,6 +28,11 @@ export interface Member { id: string; user_id: string; barbershop_id: string; ro
 export interface Barber {
   id: string; barbershop_id: string; member_id: string | null; nome_exibicao: string;
   comissao_padrao: number; ativo: boolean; cor_agenda: string;
+  barber_login: string | null; barber_pin: string | null;
+}
+
+export interface CardBrand {
+  id: string; barbershop_id: string; nome: string; percentual: number; ativo: boolean;
 }
 export interface WorkingHour {
   id: string; barber_id: string; dia_semana: number; hora_inicio: string; hora_fim: string;

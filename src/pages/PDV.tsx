@@ -3,15 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { useCash } from '../lib/cash-context';
+import { useBarberSession } from '../lib/barber-session-context';
 import Modal from '../components/Modal';
 import { formatBRL } from '../lib/utils';
 import { toast } from 'sonner';
 import {
   ShoppingCart, Search, X, Plus, Minus, Trash2, User,
   Scissors, Package, Check, Banknote, Smartphone, CreditCard,
-  ChevronRight, UserPlus, AlertTriangle, Copy, MessageCircle, Star,
+  ChevronRight, UserPlus, AlertTriangle, Copy, MessageCircle, Star, LogOut,
 } from 'lucide-react';
-import type { Service, Product, Client } from '../types/db';
+import type { Service, Product, Client, CardBrand } from '../types/db';
 
 /* ─── types ─────────────────────────────────────────────────────── */
 type Step = 'idle' | 'client' | 'barber' | 'venda' | 'pagamento' | 'done';
@@ -33,19 +34,26 @@ interface VendaState {
 }
 
 /* ─── PDV ────────────────────────────────────────────────────────── */
-export default function PDV() {
+export default function PDV({ barberId: presetBarberId }: { barberId?: string }) {
   const { barbershop, member } = useAuth();
   const { session: cashSession, refresh: refreshCash } = useCash();
+  const { clearBarber, activeBarber } = useBarberSession();
   const qc = useQueryClient();
+  const isBarberMode = !!presetBarberId;
 
   const [step, setStep] = useState<Step>('idle');
-  const [vendaState, setVendaState] = useState<VendaState>({ client: null, barberId: null });
+  const [vendaState, setVendaState] = useState<VendaState>({
+    client: null,
+    barberId: presetBarberId ?? null,
+  });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [desconto, setDesconto] = useState(0);
   const [svcSearch, setSvcSearch] = useState('');
   const [prodSearch, setProdSearch] = useState('');
   const [cancelModal, setCancelModal] = useState(false);
   const [doneInfo, setDoneInfo] = useState<{ total: number; telefone: string } | null>(null);
+  // Selected card brand fee (for commission deduction)
+  const [cardBrandFee, setCardBrandFee] = useState(0);
 
   // barbers
   const { data: barbers } = useQuery({
@@ -136,9 +144,17 @@ export default function PDV() {
   };
 
   /* Finalize sale */
-  const finalize = async (forma: PayForma, subForma?: 'credito' | 'debito', pagoValor?: number) => {
+  const finalize = async (
+    forma: PayForma,
+    subForma?: 'credito' | 'debito',
+    pagoValor?: number,
+    bandeira?: string,
+    bandeiraTaxa?: number,
+  ) => {
     if (!barbershop || !member || !vendaState.barberId) return;
     const formaFinal = subForma ?? forma;
+    // Taxa do cartão (0 se não for cartão ou bandeira não selecionada)
+    const taxaCartao = bandeiraTaxa ?? 0;
 
     if (!cashSession) {
       toast.error('Abra o caixa antes de registrar uma venda');
@@ -150,25 +166,30 @@ export default function PDV() {
       barbershop_id: barbershop.id,
       client_id: vendaState.client?.id,
       barber_id: vendaState.barberId,
-      total: subtotal, // Original total without discount/tip (those are params to close_order)
+      total: subtotal,
       desconto: desconto,
       status: 'aberta',
       cash_session_id: cashSession.id,
+      bandeira: bandeira ?? null,
     }).select('id').single();
 
     if (orderErr) return toast.error(orderErr.message);
 
-    // 2. Save items
+    // 2. Save items — comissão calculada sobre valor LÍQUIDO (após taxa do cartão)
+    const fatorLiquido = 1 - taxaCartao / 100;
+
     for (const item of cart) {
       let comissao_v = 0;
       let perc = 0;
-      
+
       if (item.tipo === 'servico') {
-        const { data: b } = await supabase.from('barbers').select('comissao_padrao').eq('id', vendaState.barberId).single();
+        const { data: b } = await supabase.from('barbers').select('comissao_padrao').eq('id', vendaState.barberId!).single();
         perc = b?.comissao_padrao ?? 50;
-        comissao_v = (item.preco * item.qtd * perc) / 100;
+        // Comissão incide sobre valor líquido (descontando taxa do cartão)
+        const valorLiquido = item.preco * item.qtd * fatorLiquido;
+        comissao_v = (valorLiquido * perc) / 100;
       }
-        
+
       await supabase.from('order_items').insert({
         order_id: order.id,
         tipo: item.tipo,
@@ -178,7 +199,7 @@ export default function PDV() {
         valor_unit: item.preco,
         valor_total: item.preco * item.qtd,
         comissao_percentual: perc,
-        comissao_valor: comissao_v
+        comissao_valor: comissao_v,
       });
     }
 
@@ -205,6 +226,27 @@ export default function PDV() {
   /* ── IDLE ─────────────────────────────────────────────────────── */
   if (step === 'idle') return (
     <div className="p-8 max-w-2xl mx-auto flex flex-col items-center gap-6 pt-16">
+      {/* Cabeçalho modo barbeiro */}
+      {isBarberMode && (
+        <div className="w-full max-w-sm flex items-center justify-between px-4 py-3 rounded-xl bg-ink-900 border border-ink-800 mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-ink-700 flex items-center justify-center text-sm font-bold">
+              {activeBarber?.nome.charAt(0)}
+            </div>
+            <div>
+              <div className="text-xs text-ink-500">Modo barbeiro</div>
+              <div className="text-sm font-medium text-ink-50">{activeBarber?.nome}</div>
+            </div>
+          </div>
+          <button
+            onClick={clearBarber}
+            className="flex items-center gap-1 text-xs text-ink-500 hover:text-red-400 transition-colors"
+          >
+            <LogOut size={14} /> Sair
+          </button>
+        </div>
+      )}
+
       <div className="w-24 h-24 rounded-3xl flex items-center justify-center"
         style={{ background: 'var(--bg-hover)' }}>
         <ShoppingCart size={40} className="text-muted" />
@@ -223,9 +265,11 @@ export default function PDV() {
               <p className="text-amber-400/80">Para registrar vendas, abra o caixa primeiro informando o saldo inicial do dia.</p>
             </div>
           </div>
-          <a href="/caixa/abrir" className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base">
-            <Plus size={18} /> Abrir caixa agora
-          </a>
+          {!isBarberMode && (
+            <a href="/caixa/abrir" className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base">
+              <Plus size={18} /> Abrir caixa agora
+            </a>
+          )}
         </div>
       ) : (
         <button className="btn-primary px-8 py-3 text-base gap-2" onClick={() => setStep('client')}>
@@ -271,24 +315,31 @@ export default function PDV() {
   );
 
   /* ── BARBER PICKER ────────────────────────────────────────────── */
-  if (step === 'barber') return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <StepHeader step={2} total={4} title="Quem realizou o atendimento?" onCancel={() => setCancelModal(true)} />
-      <div className="grid grid-cols-2 gap-3 max-w-md">
-        {(barbers ?? []).map(b => (
-          <button key={b.id} onClick={() => { setVendaState({ ...vendaState, barberId: b.id }); setStep('venda'); }}
-            className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-ink-800 hover:bg-ink-800/50 transition-all">
-            <div className="w-12 h-12 rounded-full bg-ink-700 flex items-center justify-center text-lg font-bold">
-              {b.nome_exibicao.charAt(0)}
-            </div>
-            <span className="font-medium">{b.nome_exibicao}</span>
-          </button>
-        ))}
+  if (step === 'barber') {
+    // Em modo barbeiro, pula direto para a venda
+    if (isBarberMode) {
+      setStep('venda');
+      return null;
+    }
+    return (
+      <div className="p-8 max-w-2xl mx-auto">
+        <StepHeader step={2} total={4} title="Quem realizou o atendimento?" onCancel={() => setCancelModal(true)} />
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          {(barbers ?? []).map(b => (
+            <button key={b.id} onClick={() => { setVendaState({ ...vendaState, barberId: b.id }); setStep('venda'); }}
+              className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-ink-800 hover:bg-ink-800/50 transition-all">
+              <div className="w-12 h-12 rounded-full bg-ink-700 flex items-center justify-center text-lg font-bold">
+                {b.nome_exibicao.charAt(0)}
+              </div>
+              <span className="font-medium">{b.nome_exibicao}</span>
+            </button>
+          ))}
+        </div>
+        <button className="btn-ghost mt-6" onClick={() => setStep('client')}>Voltar</button>
+        <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
       </div>
-      <button className="btn-ghost mt-6" onClick={() => setStep('client')}>Voltar</button>
-      <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
-    </div>
-  );
+    );
+  }
 
   /* ── VENDA (cart + catalog) ─────────────────────────────────────  */
   if (step === 'venda') {
@@ -465,9 +516,13 @@ export default function PDV() {
       <StepHeader step={3} total={3} title="Forma de pagamento" onCancel={() => setCancelModal(true)} />
       <PaymentStep
         total={total}
+        barbershopId={barbershop?.id ?? ''}
         pixMethod={pixMethod}
         onBack={() => setStep('venda')}
-        onConfirm={finalize}
+        onConfirm={(forma, subForma, pagoValor, bandeira, bandeiraTaxa) => {
+          setCardBrandFee(bandeiraTaxa ?? 0);
+          finalize(forma, subForma, pagoValor, bandeira, bandeiraTaxa);
+        }}
       />
       <CancelModal open={cancelModal} onClose={() => setCancelModal(false)} onConfirm={resetAll} />
     </div>
@@ -588,18 +643,35 @@ function ClientPicker({ barbershopId, onSelect, onSkip }: {
 }
 
 /* ─── PaymentStep ────────────────────────────────────────────────── */
-function PaymentStep({ total, pixMethod, onBack, onConfirm }: {
-  total: number; pixMethod: any;
+function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
+  total: number; barbershopId: string; pixMethod: any;
   onBack: () => void;
-  onConfirm: (forma: PayForma, subForma?: 'credito' | 'debito', pagoValor?: number) => void;
+  onConfirm: (forma: PayForma, subForma?: 'credito' | 'debito', pagoValor?: number, bandeira?: string, bandeiraTaxa?: number) => void;
 }) {
   const [forma, setForma] = useState<'dinheiro' | 'pix' | 'cartao' | null>(null);
   const [subForma, setSubForma] = useState<'credito' | 'debito' | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<CardBrand | null>(null);
   const [pagou, setPagou] = useState(total);
   const [pixOk, setPixOk] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
+  const { data: cardBrands } = useQuery({
+    queryKey: ['card-brands-pdv', barbershopId],
+    enabled: !!barbershopId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('card_brands')
+        .select('*')
+        .eq('barbershop_id', barbershopId)
+        .eq('ativo', true)
+        .order('nome');
+      return (data ?? []) as CardBrand[];
+    },
+  });
+
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
+  const taxaCartao = selectedBrand?.percentual ?? 0;
+  const valorLiquidoCartao = total * (1 - taxaCartao / 100);
 
   const canConfirm = () => {
     if (!forma) return false;
@@ -612,7 +684,9 @@ function PaymentStep({ total, pixMethod, onBack, onConfirm }: {
     if (!forma) return;
     if (forma === 'dinheiro') onConfirm('dinheiro', undefined, pagou);
     else if (forma === 'pix') onConfirm('pix');
-    else if (forma === 'cartao' && subForma) onConfirm(subForma, subForma);
+    else if (forma === 'cartao' && subForma) {
+      onConfirm(subForma, subForma, undefined, selectedBrand?.nome, taxaCartao);
+    }
   };
 
   return (
@@ -712,22 +786,52 @@ function PaymentStep({ total, pixMethod, onBack, onConfirm }: {
         </div>
       )}
 
-      {/* Cartão — sub-forma */}
+      {/* Cartão — sub-forma + bandeira */}
       {forma === 'cartao' && (
-        <div>
-          <label className="label mb-3">Tipo de cartão</label>
-          <div className="grid grid-cols-2 gap-3">
-            {([
-              { key: 'credito' as const, label: 'Crédito' },
-              { key: 'debito'  as const, label: 'Débito' },
-            ]).map(({ key, label }) => (
-              <button key={key} onClick={() => setSubForma(key)}
-                className={`py-4 rounded-xl border text-sm font-medium transition-all ${subForma === key ? '' : 'border-transparent hover:bg-hover-soft text-muted'}`}
-                style={subForma === key ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}>
-                {label}
-              </button>
-            ))}
+        <div className="space-y-4">
+          <div>
+            <label className="label mb-3">Tipo de cartão</label>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { key: 'credito' as const, label: 'Crédito' },
+                { key: 'debito'  as const, label: 'Débito' },
+              ]).map(({ key, label }) => (
+                <button key={key} onClick={() => setSubForma(key)}
+                  className={`py-4 rounded-xl border text-sm font-medium transition-all ${subForma === key ? '' : 'border-transparent hover:bg-hover-soft text-muted'}`}
+                  style={subForma === key ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Bandeira de cartão */}
+          {(cardBrands ?? []).length > 0 && (
+            <div>
+              <label className="label mb-2">Bandeira <span className="text-ink-600 font-normal">(opcional — afeta a comissão)</span></label>
+              <div className="flex flex-wrap gap-2">
+                {(cardBrands ?? []).map(b => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
+                    className={`px-3 py-1.5 rounded-lg border text-sm transition-all ${selectedBrand?.id === b.id ? 'font-medium' : 'border-transparent text-muted hover:bg-hover-soft'}`}
+                    style={selectedBrand?.id === b.id ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}
+                  >
+                    {b.nome} <span className="text-ink-500 text-xs">({b.percentual}%)</span>
+                  </button>
+                ))}
+              </div>
+              {selectedBrand && taxaCartao > 0 && (
+                <div className="mt-3 flex justify-between text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <span className="text-amber-400">Taxa {selectedBrand.nome} ({taxaCartao}%)</span>
+                  <span className="font-medium">
+                    Líquido: <span className="text-emerald-400">{formatBRL(valorLiquidoCartao)}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

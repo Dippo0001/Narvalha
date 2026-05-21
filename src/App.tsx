@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './lib/auth-context';
+import { useBarberSession, BarberSessionProvider } from './lib/barber-session-context';
 import { CashProvider } from './lib/cash-context';
 import { addDays, isAfter } from 'date-fns';
 import Login from './pages/Login';
@@ -27,10 +28,12 @@ import SaaSAdmin from './pages/SaaSAdmin';
 import NovaFilial from './pages/NovaFilial';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import BarberLock from './pages/BarberLock';
 import CookieBanner from './components/CookieBanner';
 
 function AppRoutes() {
   const { session, loading, member, barbershop, isAdmin, isRecovery } = useAuth();
+  const { activeBarber } = useBarberSession();
   const isAdminSubdomain = window.location.hostname === 'admin.narvalha.com.br';
 
   if (loading) {
@@ -93,8 +96,8 @@ function AppRoutes() {
   }
 
   // Subscription check: Hard block only after 10 days of grace period
-  const expiration = barbershop?.paid_until 
-    ? new Date(barbershop.paid_until) 
+  const expiration = barbershop?.paid_until
+    ? new Date(barbershop.paid_until)
     : new Date(barbershop?.trial_ends_at || 0);
 
   const blockDate = addDays(expiration, 10);
@@ -109,6 +112,24 @@ function AppRoutes() {
     );
   }
 
+  // Barber lock screen — owner is logged in but no barber selected yet
+  if (!activeBarber) {
+    return <BarberLock />;
+  }
+
+  // Barber mode — restricted to PDV only
+  if (activeBarber.id !== 'owner') {
+    return (
+      <CashProvider>
+        <Routes>
+          <Route path="/caixa/abrir" element={<CaixaAbrir />} />
+          <Route path="*" element={<PDV barberId={activeBarber.id} />} />
+        </Routes>
+      </CashProvider>
+    );
+  }
+
+  // Owner mode — full access
   return (
     <CashProvider>
       <Routes>
@@ -138,10 +159,10 @@ function AppRoutes() {
 
 function App() {
   return (
-    <>
+    <BarberSessionProvider>
       <AppRoutes />
       <CookieBanner />
-    </>
+    </BarberSessionProvider>
   );
 }
 

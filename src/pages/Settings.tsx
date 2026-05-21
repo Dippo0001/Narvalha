@@ -388,11 +388,18 @@ function BarbersTab({ qc }: any) {
       </div>
       <div className="card divide-y divide-ink-800">
         {(barbers ?? []).map((b) => (
-          <button key={b.id} onClick={() => setModal(b)} className="w-full text-left p-4 hover:bg-ink-800/40 flex justify-between">
+          <button key={b.id} onClick={() => setModal(b)} className="w-full text-left p-4 hover:bg-ink-800/40 flex justify-between items-center">
             <div>
               <div className="text-ink-50">{b.nome_exibicao}</div>
-              <div className="text-xs text-ink-500">Comissão {b.comissao_padrao}% · {b.ativo ? 'ativo' : 'inativo'}</div>
+              <div className="text-xs text-ink-500">
+                Comissão {b.comissao_padrao}% · {b.ativo ? 'ativo' : 'inativo'}
+                {b.barber_login && ` · login: ${b.barber_login}`}
+              </div>
             </div>
+            {b.barber_pin
+              ? <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">PIN OK</span>
+              : <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Sem PIN</span>
+            }
           </button>
         ))}
       </div>
@@ -475,16 +482,56 @@ function ChangePasswordSection() {
 
 function BarberForm({ initial, onSave }: { initial: Barber | null; onSave: (v: any) => void }) {
   const [form, setForm] = useState({
-    nome_exibicao: initial?.nome_exibicao ?? '',
-    comissao_padrao: Number(initial?.comissao_padrao ?? 50),
-    ativo: initial?.ativo ?? true,
-    cor_agenda: initial?.cor_agenda ?? '#6b7280',
+    nome_exibicao:    initial?.nome_exibicao ?? '',
+    comissao_padrao:  Number(initial?.comissao_padrao ?? 50),
+    ativo:            initial?.ativo ?? true,
+    cor_agenda:       initial?.cor_agenda ?? '#6b7280',
+    barber_login:     initial?.barber_login ?? '',
+    barber_pin:       initial?.barber_pin ?? '',
   });
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-      <div><label className="label">Nome</label><input className="input" value={form.nome_exibicao} onChange={(e) => setForm({ ...form, nome_exibicao: e.target.value })} required autoFocus /></div>
-      <div><label className="label">Comissão padrão (%)</label><input className="input" type="number" step="0.01" value={form.comissao_padrao} onChange={(e) => setForm({ ...form, comissao_padrao: +e.target.value })} /></div>
-      <label className="flex items-center gap-2 text-sm text-ink-300"><input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} /> Ativo</label>
+      <div>
+        <label className="label">Nome</label>
+        <input className="input" value={form.nome_exibicao} onChange={(e) => setForm({ ...form, nome_exibicao: e.target.value })} required autoFocus />
+      </div>
+      <div>
+        <label className="label">Comissão padrão (%)</label>
+        <input className="input" type="number" step="0.01" value={form.comissao_padrao} onChange={(e) => setForm({ ...form, comissao_padrao: +e.target.value })} />
+      </div>
+
+      {/* Acesso ao sistema */}
+      <div className="pt-3 border-t border-ink-800 space-y-3">
+        <div className="text-xs font-bold text-ink-500 uppercase tracking-widest">Acesso ao Sistema (PDV)</div>
+        <div>
+          <label className="label">Login (nome de usuário)</label>
+          <input
+            className="input"
+            value={form.barber_login}
+            onChange={(e) => setForm({ ...form, barber_login: e.target.value.toLowerCase().replace(/\s/g, '') })}
+            placeholder="Ex: joao"
+          />
+          <p className="text-[10px] text-ink-600 mt-1">Sem espaços, letras minúsculas.</p>
+        </div>
+        <div>
+          <label className="label">PIN (4–6 dígitos)</label>
+          <input
+            className="input"
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            value={form.barber_pin}
+            onChange={(e) => setForm({ ...form, barber_pin: e.target.value.replace(/\D/g, '') })}
+            placeholder="••••••"
+          />
+          <p className="text-[10px] text-ink-600 mt-1">O barbeiro usa esse PIN para entrar no modo PDV.</p>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-ink-300">
+        <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} /> Ativo
+      </label>
       <button className="btn-primary w-full">Salvar</button>
     </form>
   );

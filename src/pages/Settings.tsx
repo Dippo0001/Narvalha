@@ -19,6 +19,7 @@ export default function Settings() {
   const [slug, setSlug] = useState(barbershop?.slug ?? '');
   const [cancel, setCancel] = useState(barbershop?.cancel_min_hours ?? 2);
   const [numCadeiras, setNumCadeiras] = useState(barbershop?.num_cadeiras ?? 1);
+  const [numCadeirasInfantil, setNumCadeirasInfantil] = useState(barbershop?.num_cadeiras_infantil ?? 0);
   const [caixaAsCegas, setCaixaAsCegas] = useState(barbershop?.caixa_as_cegas ?? false);
   const [frequencia, setFrequencia] = useState(barbershop?.comissao_frequencia ?? 'semanal');
   const [diaPagamento, setDiaPagamento] = useState(barbershop?.comissao_dia_pagamento ?? '6');
@@ -35,6 +36,7 @@ export default function Settings() {
       nome, telefone: telefone.replace(/\D/g, ''), endereco, slug, 
       cancel_min_hours: cancel,
       num_cadeiras: numCadeiras,
+      num_cadeiras_infantil: numCadeirasInfantil,
       caixa_as_cegas: caixaAsCegas,
       comissao_frequencia: frequencia,
       comissao_dia_pagamento: diaPagamento
@@ -72,11 +74,17 @@ export default function Settings() {
               />
             </div>
             <div><label className="label">Endereço</label><input className="input" value={endereco} onChange={(e) => setEndereco(e.target.value)} /></div>
-            <div>
-              <label className="label">Número de Cadeiras (Capacidade simultânea)</label>
-              <input className="input" type="number" min={1} value={numCadeiras} onChange={(e) => setNumCadeiras(+e.target.value)} />
-              <p className="text-[10px] text-ink-500 mt-1">Define quantos atendimentos podem ocorrer ao mesmo tempo na barbearia.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Cadeiras (adulto)</label>
+                <input className="input" type="number" min={1} value={numCadeiras} onChange={(e) => setNumCadeiras(+e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Cadeiras infantis</label>
+                <input className="input" type="number" min={0} value={numCadeirasInfantil} onChange={(e) => setNumCadeirasInfantil(+e.target.value)} />
+              </div>
             </div>
+            <p className="text-[10px] text-ink-500 -mt-2">Capacidade simultânea de atendimentos na barbearia.</p>
             <div><label className="label">Antecedência mín. cancelamento (horas)</label><input className="input" type="number" value={cancel} onChange={(e) => setCancel(+e.target.value)} /></div>
             <button className="btn-primary">Salvar</button>
           </form>

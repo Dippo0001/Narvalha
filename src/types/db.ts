@@ -14,6 +14,7 @@ export interface Barbershop {
   logo_url: string;
   cancel_min_hours: number;
   num_cadeiras: number;
+  num_cadeiras_infantil: number;
   plan: 'trial' | 'silver' | 'gold' | 'platinum';
   subscription_status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'incomplete';
   subscription_id: string | null;

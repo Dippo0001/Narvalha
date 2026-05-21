@@ -35,7 +35,7 @@ export interface Barber {
   barber_login: string | null; barber_pin: string | null;
 }
 
-export type CardBrandTipo = 'debito' | 'credito_avista' | 'parcelado_2_6' | 'parcelado_7_12';
+export type CardBrandTipo = 'debito' | 'credito_1x' | 'credito_2x' | 'credito_3x' | 'credito_4x' | 'credito_5x';
 
 export interface CardBrand {
   id: string; barbershop_id: string; nome: string; tipo: CardBrandTipo; percentual: number; ativo: boolean;

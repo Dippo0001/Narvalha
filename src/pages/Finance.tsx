@@ -20,12 +20,14 @@ import { toast } from 'sonner';
 import type { CashMovement, CardBrand, CardBrandTipo } from '../types/db';
 
 const TIPO_LABELS: Record<CardBrandTipo, string> = {
-  debito: 'Débito',
-  credito_avista: 'Crédito à vista',
-  parcelado_2_6: 'Parc. 2–6x',
-  parcelado_7_12: 'Parc. 7–12x',
+  debito:     'Débito',
+  credito_1x: 'Crédito 1x',
+  credito_2x: 'Crédito 2x',
+  credito_3x: 'Crédito 3x',
+  credito_4x: 'Crédito 4x',
+  credito_5x: 'Crédito 5x',
 };
-const BRAND_TIPOS: CardBrandTipo[] = ['debito', 'credito_avista', 'parcelado_2_6', 'parcelado_7_12'];
+const BRAND_TIPOS: CardBrandTipo[] = ['debito', 'credito_1x', 'credito_2x', 'credito_3x', 'credito_4x', 'credito_5x'];
 
 type Tab = 'caixa' | 'comissoes' | 'relatorios' | 'pagar' | 'receber' | 'formas';
 
@@ -1060,7 +1062,7 @@ function RateInput({ value, onSave }: { value: number; onSave: (v: number) => vo
 function CardBrandForm({ onSave }: { onSave: (rows: { nome: string; tipo: string; percentual: number }[]) => void }) {
   const [nome, setNome] = useState('');
   const [rates, setRates] = useState<Record<CardBrandTipo, number>>({
-    debito: 0, credito_avista: 0, parcelado_2_6: 0, parcelado_7_12: 0,
+    debito: 0, credito_1x: 0, credito_2x: 0, credito_3x: 0, credito_4x: 0, credito_5x: 0,
   });
   const setRate = (tipo: CardBrandTipo, v: number) => setRates(p => ({ ...p, [tipo]: v }));
 
@@ -1074,16 +1076,24 @@ function CardBrandForm({ onSave }: { onSave: (rows: { nome: string; tipo: string
         <input className="input" value={nome} onChange={e => setNome(e.target.value)} required autoFocus
           placeholder="Ex: Visa, Mastercard, Elo" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {BRAND_TIPOS.map(tipo => (
-          <div key={tipo}>
-            <label className="label">{TIPO_LABELS[tipo]} (%)</label>
-            <input className="input" type="number" step="0.01" min={0} max={100}
-              value={rates[tipo]} onChange={e => setRate(tipo, +e.target.value)} />
-          </div>
-        ))}
+      <div>
+        <label className="label mb-2">Débito (%)</label>
+        <input className="input" type="number" step="0.01" min={0} max={100}
+          value={rates.debito} onChange={e => setRate('debito', +e.target.value)} />
       </div>
-      <p className="text-xs text-muted">Ex: Débito 1.89% → venda R$100 = R$98,11 líquido para comissão.</p>
+      <div>
+        <label className="label mb-2">Crédito por parcela (%)</label>
+        <div className="grid grid-cols-5 gap-2">
+          {(['credito_1x', 'credito_2x', 'credito_3x', 'credito_4x', 'credito_5x'] as CardBrandTipo[]).map(tipo => (
+            <div key={tipo}>
+              <label className="text-[11px] text-muted block mb-1 text-center">{TIPO_LABELS[tipo].replace('Crédito ', '')}</label>
+              <input className="input text-center px-1" type="number" step="0.01" min={0} max={100}
+                value={rates[tipo]} onChange={e => setRate(tipo, +e.target.value)} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-muted">Ex: Débito 1,89% · Crédito 1x 2,99% · 2x 3,49% → taxa descontada antes da comissão.</p>
       <button className="btn-primary w-full">Salvar</button>
     </form>
   );

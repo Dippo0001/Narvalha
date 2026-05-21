@@ -646,6 +646,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
 }) {
   const [forma, setForma] = useState<'dinheiro' | 'pix' | 'cartao' | null>(null);
   const [subForma, setSubForma] = useState<'credito' | 'debito' | null>(null);
+  const [parcelas, setParcelas] = useState<number>(1);
   const [selectedBrandName, setSelectedBrandName] = useState<string | null>(null);
   const [pagou, setPagou] = useState(total);
   const [pixOk, setPixOk] = useState(false);
@@ -665,22 +666,23 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
     },
   });
 
-  const SUBFROMA_TIPO: Record<string, string> = { credito: 'credito_avista', debito: 'debito' };
+  const getTipo = (sf: string, parc: number): string =>
+    sf === 'debito' ? 'debito' : `credito_${parc}x`;
 
-  // Unique brand names that have a configured rate for the current subForma
+  // Unique brand names that have a configured rate for the current subForma + parcelas
   const availableBrandNames = useMemo(() => {
     if (!subForma) return [];
-    const tipo = SUBFROMA_TIPO[subForma];
+    const tipo = getTipo(subForma, parcelas);
     const names = new Set<string>();
     (cardBrands ?? []).filter(b => b.tipo === tipo && b.percentual > 0).forEach(b => names.add(b.nome));
     return Array.from(names).sort();
-  }, [subForma, cardBrands]);
+  }, [subForma, parcelas, cardBrands]);
 
-  // Rate for selected brand + current subForma — applied automatically
+  // Rate for selected brand + current subForma/parcelas — applied automatically
   const activeBrandRow = useMemo(() => {
     if (!selectedBrandName || !subForma) return null;
-    return (cardBrands ?? []).find(b => b.nome === selectedBrandName && b.tipo === SUBFROMA_TIPO[subForma]) ?? null;
-  }, [selectedBrandName, subForma, cardBrands]);
+    return (cardBrands ?? []).find(b => b.nome === selectedBrandName && b.tipo === getTipo(subForma, parcelas)) ?? null;
+  }, [selectedBrandName, subForma, parcelas, cardBrands]);
 
   const troco = forma === 'dinheiro' ? Math.max(0, pagou - total) : 0;
   const taxaCartao = activeBrandRow?.percentual ?? 0;
@@ -809,7 +811,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
                 { key: 'credito' as const, label: 'Crédito' },
                 { key: 'debito'  as const, label: 'Débito' },
               ]).map(({ key, label }) => (
-                <button key={key} onClick={() => { setSubForma(key); setSelectedBrandName(null); }}
+                <button key={key} onClick={() => { setSubForma(key); setParcelas(1); setSelectedBrandName(null); }}
                   className={`py-4 rounded-xl border text-sm font-medium transition-all ${subForma === key ? '' : 'border-transparent hover:bg-hover-soft text-muted'}`}
                   style={subForma === key ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}>
                   {label}
@@ -817,6 +819,26 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
               ))}
             </div>
           </div>
+
+          {/* Parcelas (só crédito) */}
+          {subForma === 'credito' && (
+            <div>
+              <label className="label mb-2">Parcelas</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => { setParcelas(n); setSelectedBrandName(null); }}
+                    className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${parcelas === n ? '' : 'border-transparent hover:bg-hover-soft text-muted'}`}
+                    style={parcelas === n ? { borderColor: 'var(--text)', background: 'var(--bg-hover)' } : { borderColor: 'var(--border)' }}
+                  >
+                    {n}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Bandeira de cartão */}
           {subForma && availableBrandNames.length > 0 && (
@@ -837,7 +859,7 @@ function PaymentStep({ total, barbershopId, pixMethod, onBack, onConfirm }: {
               </div>
               {activeBrandRow && taxaCartao > 0 && (
                 <div className="mt-3 flex justify-between text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <span className="text-amber-400">Taxa {selectedBrandName} ({taxaCartao}%)</span>
+                  <span className="text-amber-400">Taxa {selectedBrandName}{subForma === 'credito' ? ` ${parcelas}x` : ''} ({taxaCartao}%)</span>
                   <span className="font-medium">
                     Líquido: <span className="text-emerald-400">{formatBRL(valorLiquidoCartao)}</span>
                   </span>

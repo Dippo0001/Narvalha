@@ -58,12 +58,19 @@ export default function PublicBooking() {
     queryKey: ['public-shop', slug],
     enabled: !!slug,
     queryFn: async () => {
+      const cleanSlug = slug?.trim().toLowerCase();
+      if (!cleanSlug) throw new Error('Slug inválido');
+
       const { data, error } = await supabase
         .from('barbershops')
         .select('id,nome,slug,telefone,endereco')
-        .eq('slug', slug!)
+        .eq('slug', cleanSlug)
         .single();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('Error fetching shop:', error);
+        throw error;
+      }
       return data as { id: string; nome: string; slug: string; telefone: string; endereco: string };
     },
   });
@@ -102,13 +109,15 @@ export default function PublicBooking() {
     queryFn: async () => {
       const start = startOfDay(date).toISOString();
       const end = startOfDay(addDays(date, 1)).toISOString();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .select('data_hora,duracao_min')
         .eq('barber_id', barber!.id)
         .gte('data_hora', start)
         .lt('data_hora', end)
-        .not('status', 'in', '("cancelado","no_show")');
+        .not('status', 'in', ['cancelado', 'no_show']);
+      
+      if (error) throw error;
       return (data ?? []) as Array<{ data_hora: string; duracao_min: number }>;
     },
   });
@@ -158,10 +167,20 @@ export default function PublicBooking() {
   if (error || !shop) {
     return (
       <div className="min-h-screen bg-ink-950 flex items-center justify-center p-8">
-        <div className="text-center">
-          <Scissors size={40} className="text-ink-600 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-ink-100 mb-2">Barbearia não encontrada</h1>
-          <p className="text-ink-500 text-sm">O link pode estar incorreto.</p>
+        <div className="text-center max-w-sm">
+          <Scissors size={40} className="text-ink-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-ink-50 mb-2">Página indisponível</h1>
+          <p className="text-ink-400 text-sm mb-6">
+            Não conseguimos localizar esta barbearia. O link pode estar incorreto ou a página foi removida.
+          </p>
+          <a href="/" className="btn-outline w-full">Voltar para o início</a>
+          {error && (
+            <div className="mt-8 pt-4 border-t border-ink-900">
+              <p className="text-[10px] text-ink-600 font-mono break-all uppercase tracking-tighter">
+                Detalhes técnicos: {error instanceof Error ? error.message : JSON.stringify(error)}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

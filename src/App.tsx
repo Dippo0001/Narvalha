@@ -44,6 +44,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/b/:slug" element={<PublicBooking />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }

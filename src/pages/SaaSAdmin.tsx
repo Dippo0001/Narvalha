@@ -327,6 +327,67 @@ export default function SaaSAdmin() {
                         <option value="incomplete">Incompleta</option>
                       </select>
                     </div>
+
+                    <div className="space-y-1 pt-2">
+                      <label className="text-xs text-ink-500 uppercase tracking-wide">Fim do Trial</label>
+                      <input
+                        type="date"
+                        className="input text-sm"
+                        value={selectedShop.trial_ends_at ? format(new Date(selectedShop.trial_ends_at), 'yyyy-MM-dd') : ''}
+                        onChange={e => updateField(selectedShop.id, 'trial_ends_at', e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-1 pt-2">
+                      <label className="text-xs text-ink-500 uppercase tracking-wide">Vencimento (Pago até)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          className="input text-sm flex-1"
+                          value={selectedShop.paid_until ? format(new Date(selectedShop.paid_until), 'yyyy-MM-dd') : ''}
+                          onChange={e => updateField(selectedShop.id, 'paid_until', e.target.value)}
+                        />
+                        <button
+                          onClick={() => {
+                            const now = new Date();
+                            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+                            updateField(selectedShop.id, 'paid_until', nextMonth.toISOString());
+                          }}
+                          className="px-2 py-1 bg-ink-800 text-ink-100 rounded text-[10px] font-bold uppercase hover:bg-ink-700 transition-colors"
+                          title="Adicionar 30 dias"
+                        >
+                          +30d
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <button
+                        onClick={() => {
+                          if (!confirm('Bloquear acesso desta barbearia imediatamente?')) return;
+                          // Bloqueia definindo vencimento para 1 ano atrás
+                          const past = new Date();
+                          past.setFullYear(past.getFullYear() - 1);
+                          updateField(selectedShop.id, 'paid_until', past.toISOString());
+                          updateField(selectedShop.id, 'subscription_status', 'past_due');
+                        }}
+                        className="flex-1 px-3 py-2 bg-red-900/20 text-red-400 border border-red-900/40 rounded-md text-xs font-bold hover:bg-red-900/30 transition-colors"
+                      >
+                        Bloquear
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Desbloqueia definindo vencimento para 30 dias no futuro
+                          const future = new Date();
+                          future.setDate(future.getDate() + 30);
+                          updateField(selectedShop.id, 'paid_until', future.toISOString());
+                          updateField(selectedShop.id, 'subscription_status', 'active');
+                        }}
+                        className="flex-1 px-3 py-2 bg-emerald-900/20 text-emerald-400 border border-emerald-900/40 rounded-md text-xs font-bold hover:bg-emerald-900/30 transition-colors"
+                      >
+                        Desbloquear
+                      </button>
+                    </div>
                   </div>
                 </div>
 

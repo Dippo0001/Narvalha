@@ -523,6 +523,115 @@ function TestAccountTab({ shops, qc, onOpenSimulator }: { shops: any[]; qc: any;
     toast.success('Conta teste removida.');
   };
 
+  const generateData = async () => {
+    if (!demoShop) return;
+    setBusy('generate');
+    toast.info('Gerando dados... Isso pode levar alguns segundos.');
+
+    try {
+      const bid = demoShop.id;
+
+      // 1. Get/Ensure Barbers
+      let { data: barbers } = await supabase.from('barbers').select('id').eq('barbershop_id', bid);
+      if (!barbers || barbers.length === 0) {
+        const names = ['Henrique', 'Vitor', 'Gabriel'];
+        const { data: newBarbers } = await supabase.from('barbers').insert(
+          names.map(n => ({ barbershop_id: bid, nome_exibicao: n, ativo: true }))
+        ).select();
+        barbers = newBarbers;
+      }
+
+      // 2. Get/Ensure Services
+      let { data: services } = await supabase.from('services').select('id,valor,duracao_min').eq('barbershop_id', bid);
+      if (!services || services.length === 0) {
+        const { data: newServices } = await supabase.from('services').insert([
+          { barbershop_id: bid, nome: 'Corte Social', valor: 35, duracao_min: 30 },
+          { barbershop_id: bid, nome: 'Degradê', valor: 45, duracao_min: 45 },
+          { barbershop_id: bid, nome: 'Barba Completa', valor: 30, duracao_min: 30 },
+          { barbershop_id: bid, nome: 'Corte + Barba', valor: 65, duracao_min: 60 },
+        ]).select();
+        services = newServices;
+      }
+
+      // 3. Generate Clients (50)
+      const clientNames = ['Ricardo', 'Felipe', 'Joao', 'Marcos', 'Andre', 'Lucas', 'Mateus', 'Bruno', 'Thiago', 'Gustavo'];
+      const { data: clients } = await supabase.from('clients').insert(
+        Array.from({ length: 50 }).map((_, i) => ({
+          barbershop_id: bid,
+          nome: `${clientNames[i % 10]} ${i}`,
+          telefone: `889${Math.floor(10000000 + Math.random() * 90000000)}`
+        }))
+      ).select();
+
+      if (!clients) throw new Error('Falha ao gerar clientes');
+
+      // 4. Generate Appointments & Orders (Last 60 days)
+      const appointments = [];
+      const orders = [];
+      const now = new Date();
+      
+      for (let i = 0; i < 200; i++) {
+        const barber = barbers![i % barbers!.length];
+        const service = services![i % services!.length];
+        const client = clients[Math.floor(Math.random() * clients.length)];
+        
+        const date = new Date(now);
+        date.setDate(date.getDate() - Math.floor(Math.random() * 60));
+        date.setHours(9 + Math.floor(Math.random() * 10), Math.random() > 0.5 ? 30 : 0, 0, 0);
+
+        appointments.push({
+          barbershop_id: bid,
+          barber_id: barber.id,
+          client_id: client.id,
+          data_hora: date.toISOString(),
+          status: 'finalizado',
+          duracao_min: service.duracao_min
+        });
+      }
+
+      const { data: insertedAppts } = await supabase.from('appointments').insert(appointments).select();
+
+      if (insertedAppts) {
+        for (const appt of insertedAppts) {
+          const service = services![Math.floor(Math.random() * services!.length)];
+          orders.push({
+            barbershop_id: bid,
+            appointment_id: appt.id,
+            client_id: appt.client_id,
+            barber_id: appt.barber_id,
+            total: service.valor,
+            status: 'fechada',
+            forma_pagamento: ['pix', 'dinheiro', 'credito', 'debito'][Math.floor(Math.random() * 4)],
+            aberta_em: appt.data_hora,
+            fechada_em: appt.data_hora
+          });
+        }
+        
+        const { data: insertedOrders } = await supabase.from('orders').insert(orders).select();
+        
+        if (insertedOrders) {
+          const cash = insertedOrders.map(o => ({
+            barbershop_id: bid,
+            tipo: 'entrada',
+            categoria: 'atendimento',
+            descricao: 'Fechamento de comanda (Demo)',
+            valor: o.total,
+            data: o.fechada_em,
+            ref_order_id: o.id
+          }));
+          await supabase.from('cash_movements').insert(cash);
+        }
+      }
+
+      toast.success('Dados gerados com sucesso!');
+      qc.invalidateQueries();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="card p-5 border border-amber-900/40 space-y-2">
@@ -588,33 +697,47 @@ function TestAccountTab({ shops, qc, onOpenSimulator }: { shops: any[]; qc: any;
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
+              onClick={generateData}
+              disabled={!!busy}
+              className="card p-4 hover:bg-emerald-900/10 hover:border-emerald-900/40 transition-colors text-left space-y-1 disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
+                <TrendingUp size={14} className="text-emerald-400" />
+                {busy === 'generate' ? 'Gerando...' : 'Gerar dados fictícios'}
+              </div>
+              <div className="text-xs text-ink-500">
+                Popula a conta com 200 agendamentos e vendas dos últimos 60 dias.
+              </div>
+            </button>
+
+            <button
               onClick={reset}
-              disabled={busy === 'reset'}
+              disabled={!!busy}
               className="card p-4 hover:bg-ink-900/50 transition-colors text-left space-y-1 disabled:opacity-50"
             >
               <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
                 <RotateCcw size={14} className="text-amber-400" />
-                {busy === 'reset' ? 'Resetando…' : 'Resetar dados'}
+                {busy === 'reset' ? 'Resetando…' : 'Limpar dados'}
               </div>
               <div className="text-xs text-ink-500">
                 Apaga clientes, vendas, agenda e caixa. Mantém serviços e produtos.
               </div>
             </button>
-
-            <button
-              onClick={wipe}
-              disabled={busy === 'wipe'}
-              className="card p-4 hover:bg-red-900/10 hover:border-red-900/40 transition-colors text-left space-y-1 disabled:opacity-50"
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
-                <Trash2 size={14} className="text-red-400" />
-                {busy === 'wipe' ? 'Removendo…' : 'Remover conta teste'}
-              </div>
-              <div className="text-xs text-ink-500">
-                Apaga tudo. Você pode criar uma nova depois.
-              </div>
-            </button>
           </div>
+
+          <button
+            onClick={wipe}
+            disabled={!!busy}
+            className="w-full card p-4 hover:bg-red-900/10 hover:border-red-900/40 transition-colors text-left space-y-1 disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 text-sm font-medium text-ink-100">
+              <Trash2 size={14} className="text-red-400" />
+              {busy === 'wipe' ? 'Removendo…' : 'Remover conta teste permanentemente'}
+            </div>
+            <div className="text-xs text-ink-500">
+              Apaga tudo, inclusive a própria loja de teste.
+            </div>
+          </button>
         </>
       )}
     </div>

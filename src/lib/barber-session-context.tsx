@@ -15,7 +15,7 @@ const STORAGE_KEY = 'narvalha_barber_session';
 
 function readSession(): ActiveBarber | null {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -33,7 +33,7 @@ export function BarberSessionProvider({
   initialBarber,
 }: {
   children: ReactNode;
-  /** When provided, skips sessionStorage and starts with this value (used by simulator). */
+  /** When provided, skips localStorage and starts with this value (used by simulator). */
   initialBarber?: ActiveBarber | null;
 }) {
   const [activeBarber, setActiveBarberState] = useState<ActiveBarber | null>(
@@ -42,13 +42,13 @@ export function BarberSessionProvider({
 
   const setActiveBarber = (b: ActiveBarber | null) => {
     setActiveBarberState(b);
-    if (b) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(b));
-    else sessionStorage.removeItem(STORAGE_KEY);
+    if (b) localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+    else localStorage.removeItem(STORAGE_KEY);
   };
 
   const clearBarber = () => {
     setActiveBarberState(null);
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   return (

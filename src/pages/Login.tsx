@@ -1,17 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+
+const REMEMBER_ME_KEY = 'narvalha_remember_email';
 
 export default function Login() {
   const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(REMEMBER_ME_KEY);
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_ME_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_ME_KEY);
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
@@ -39,12 +57,40 @@ export default function Login() {
           <form onSubmit={submit} className="card p-6 space-y-4">
             <div>
               <label className="label">E-mail</label>
-              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+              <input 
+                className="input" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                autoFocus={!email} 
+                autoComplete="username"
+              />
             </div>
             <div>
               <label className="label">Senha</label>
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input 
+                className="input" 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                autoFocus={!!email} 
+                autoComplete="current-password"
+              />
             </div>
+            
+            <div className="flex items-center gap-2">
+              <input 
+                id="remember" 
+                type="checkbox" 
+                className="w-4 h-4 rounded border-ink-800 bg-ink-900 text-ink-100 focus:ring-ink-500"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <label htmlFor="remember" className="text-sm text-ink-500 cursor-pointer select-none">Lembrar meu e-mail</label>
+            </div>
+
             <button className="btn-primary w-full" disabled={loading}>
               {loading ? 'Entrando…' : 'Entrar'}
             </button>

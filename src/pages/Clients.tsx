@@ -168,6 +168,17 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
   const [lembreteDias, setLembreteDias] = useState(initial?.lembrete_dias ?? 30);
   const [marketingConsent, setMarketingConsent] = useState(!!(initial as any)?.marketing_consent);
 
+  // Fiscal/Address states
+  const [cpfCnpj, setCpfCnpj] = useState(initial?.cpf_cnpj ?? '');
+  const [tipoPessoa, setTipoPessoa] = useState<'PF' | 'PJ'>(initial?.tipo_pessoa ?? 'PF');
+  const [cep, setCep] = useState(initial?.cep ?? '');
+  const [logradouro, setLogradouro] = useState(initial?.logradouro ?? '');
+  const [numero, setNumero] = useState(initial?.numero ?? '');
+  const [complemento, setComplemento] = useState(initial?.complemento ?? '');
+  const [bairro, setBairro] = useState(initial?.bairro ?? '');
+  const [cidade, setCidade] = useState(initial?.cidade ?? '');
+  const [uf, setUf] = useState(initial?.uf ?? '');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidPhone(telefone)) {
@@ -181,39 +192,103 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       lembrete_dias: lembreteDias,
       marketing_consent: marketingConsent,
-      lgpd_consent_at: marketingConsent ? new Date().toISOString() : null
+      lgpd_consent_at: marketingConsent ? new Date().toISOString() : null,
+      cpf_cnpj: cpfCnpj.replace(/\D/g, ''),
+      tipo_pessoa: tipoPessoa,
+      cep: cep.replace(/\D/g, ''),
+      logradouro,
+      numero,
+      complemento,
+      bairro,
+      cidade,
+      uf
     });
   };
 
   return (
-    <form onSubmit={handleSubmit}
-      className="space-y-4">
-      <div><label className="label">Nome</label><input className="input" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus /></div>
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="label">Nome</label>
+          <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus />
+        </div>
         <div>
           <label className="label">Telefone (Celular)</label>
-          <input 
-            className="input" 
-            value={telefone} 
-            onChange={(e) => setTelefone(maskPhone(e.target.value))} 
-            placeholder="(85) 98888-8888"
-            required 
-          />
+          <input className="input" value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(85) 98888-8888" required />
         </div>
         <div>
-          <label className="label">Ciclo de Retorno (Dias)</label>
-          <select className="input" value={lembreteDias} onChange={(e) => setLembreteDias(+e.target.value)}>
-            <option value={15}>15 dias</option>
-            <option value={30}>30 dias</option>
-            <option value={45}>45 dias</option>
-            <option value={60}>60 dias</option>
-            <option value={120}>120 dias</option>
-          </select>
+          <label className="label">E-mail</label>
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
       </div>
-      <div><label className="label">E-mail</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-      <div><label className="label">Tags (separadas por vírgula)</label><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="vip, aniversariante" /></div>
-      <div><label className="label">Observações</label><textarea className="input" rows={3} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Tipo</label>
+            <select className="input" value={tipoPessoa} onChange={e => setTipoPessoa(e.target.value as any)}>
+              <option value="PF">Pessoa Física (CPF)</option>
+              <option value="PJ">Pessoa Jurídica (CNPJ)</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">{tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}</label>
+            <input className="input" value={cpfCnpj} onChange={e => setCpfCnpj(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Endereço (opcional)</h4>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="label">CEP</label>
+            <input className="input" value={cep} onChange={e => setCep(e.target.value)} placeholder="00000-000" />
+          </div>
+          <div className="col-span-2">
+            <label className="label">Logradouro</label>
+            <input className="input" value={logradouro} onChange={e => setLogradouro(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Número</label>
+            <input className="input" value={numero} onChange={e => setNumero(e.target.value)} />
+          </div>
+          <div className="col-span-2">
+            <label className="label">Bairro</label>
+            <input className="input" value={bairro} onChange={e => setBairro(e.target.value)} />
+          </div>
+          <div className="col-span-2">
+            <label className="label">Cidade</label>
+            <input className="input" value={cidade} onChange={e => setCidade(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">UF</label>
+            <input className="input" value={uf} onChange={e => setUf(e.target.value.toUpperCase())} maxLength={2} />
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Configurações</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Ciclo de Retorno</label>
+            <select className="input" value={lembreteDias} onChange={(e) => setLembreteDias(+e.target.value)}>
+              <option value={15}>15 dias</option>
+              <option value={30}>30 dias</option>
+              <option value={45}>45 dias</option>
+              <option value={60}>60 dias</option>
+              <option value={120}>120 dias</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Tags</label>
+            <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="vip, etc" />
+          </div>
+        </div>
+        <div><label className="label">Observações</label><textarea className="input" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
+      </div>
       
       <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-bg-hover/30 cursor-pointer group transition-colors hover:bg-bg-hover/50">
         <input 
@@ -225,7 +300,7 @@ function ClientForm({ initial, onSave }: { initial: Client | null; onSave: (v: a
         <div className="flex-1">
           <div className="text-sm font-medium group-hover:text-ink-50 transition-colors">Consentimento de Marketing</div>
           <p className="text-[10px] text-ink-500 leading-tight">
-            O cliente autoriza o recebimento de lembretes e promoções via WhatsApp/SMS conforme a LGPD.
+            O cliente autoriza lembretes e promoções via WhatsApp conforme a LGPD.
           </p>
         </div>
       </label>

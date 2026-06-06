@@ -89,11 +89,22 @@ function ServiceForm({ initial, onSave }: { initial: Service | null; onSave: (v:
   const [duracao, setDuracao] = useState(initial?.duracao_min ?? 30);
   const [valor, setValor] = useState(Number(initial?.valor ?? 0));
   const [ativo, setAtivo] = useState(initial?.ativo ?? true);
+  const [lc116, setLc116] = useState(initial?.lc116_code ?? '04.01');
+  const [codMun, setCodMun] = useState(initial?.codigo_tributacao_municipio ?? '');
+  const [iss, setIss] = useState(Number(initial?.iss_aliquota ?? 0));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (duracao < 15 || duracao % 5 !== 0) return toast.error('Duração: mínimo 15 min, múltiplo de 5');
-    onSave({ nome, duracao_min: duracao, valor, ativo });
+    onSave({ 
+      nome, 
+      duracao_min: duracao, 
+      valor, 
+      ativo,
+      lc116_code: lc116,
+      codigo_tributacao_municipio: codMun,
+      iss_aliquota: iss
+    });
   };
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -102,6 +113,25 @@ function ServiceForm({ initial, onSave }: { initial: Service | null; onSave: (v:
         <div><label className="label">Duração (min)</label><input className="input" type="number" step={5} min={15} value={duracao} onChange={(e) => setDuracao(+e.target.value)} required /></div>
         <div><label className="label">Valor (R$)</label><input className="input" type="number" step="0.01" min={0} value={valor} onChange={(e) => setValor(+e.target.value)} required /></div>
       </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Código LC116</label>
+            <input className="input" value={lc116} onChange={e => setLc116(e.target.value)} placeholder="04.01" />
+          </div>
+          <div>
+            <label className="label">Alíquota ISS (%)</label>
+            <input className="input" type="number" step="0.01" value={iss} onChange={e => setIss(+e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label className="label">Cód. Tributação Município</label>
+          <input className="input" value={codMun} onChange={e => setCodMun(e.target.value)} placeholder="Opcional" />
+        </div>
+      </div>
+
       <label className="flex items-center gap-2 text-sm text-ink-300"><input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Ativo</label>
       <button className="btn-primary w-full">Salvar</button>
     </form>

@@ -12,7 +12,7 @@ import type { Barber } from '../types/db';
 export default function Settings() {
   const { barbershop, refresh } = useAuth();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'geral' | 'equipe' | 'regras' | 'plano'>('geral');
+  const [tab, setTab] = useState<'geral' | 'equipe' | 'regras' | 'fiscal' | 'plano'>('geral');
   const [nome, setNome] = useState(barbershop?.nome ?? '');
   const [telefone, setTelefone] = useState(maskPhone(barbershop?.telefone ?? ''));
   const [endereco, setEndereco] = useState(barbershop?.endereco ?? '');
@@ -23,6 +23,15 @@ export default function Settings() {
   const [caixaAsCegas, setCaixaAsCegas] = useState(barbershop?.caixa_as_cegas ?? false);
   const [frequencia, setFrequencia] = useState(barbershop?.comissao_frequencia ?? 'semanal');
   const [diaPagamento, setDiaPagamento] = useState(barbershop?.comissao_dia_pagamento ?? '6');
+
+  // Fiscal states
+  const [fiscalEnabled, setFiscalEnabled] = useState(barbershop?.fiscal_enabled ?? false);
+  const [cnpj, setCnpj] = useState(barbershop?.cnpj ?? '');
+  const [ie, setIe] = useState(barbershop?.inscricao_estadual ?? '');
+  const [im, setIm] = useState(barbershop?.inscricao_municipal ?? '');
+  const [cnae, setCnae] = useState(barbershop?.cnae ?? '');
+  const [crt, setCrt] = useState(barbershop?.crt ?? 1);
+  const [ibge, setIbge] = useState(barbershop?.ibge_code ?? '');
 
   const saveShop = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +48,14 @@ export default function Settings() {
       num_cadeiras_infantil: numCadeirasInfantil,
       caixa_as_cegas: caixaAsCegas,
       comissao_frequencia: frequencia,
-      comissao_dia_pagamento: diaPagamento
+      comissao_dia_pagamento: diaPagamento,
+      fiscal_enabled: fiscalEnabled,
+      cnpj,
+      inscricao_estadual: ie,
+      inscricao_municipal: im,
+      cnae,
+      crt,
+      ibge_code: ibge
     }).eq('id', barbershop.id);
     if (error) return toast.error(error.message);
     toast.success('Salvo');
@@ -56,6 +72,8 @@ export default function Settings() {
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'equipe' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Equipe</button>
         <button onClick={() => setTab('regras')}
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'regras' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Regras de Negócio</button>
+        <button onClick={() => setTab('fiscal')}
+          className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'fiscal' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Fiscal</button>
         <button onClick={() => setTab('plano')}
           className={`px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap ${tab === 'plano' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Assinatura</button>
       </div>
@@ -91,6 +109,108 @@ export default function Settings() {
 
           <ChangePasswordSection />
           <OwnerPinSection />
+        </div>
+      )}
+      {tab === 'fiscal' && (
+        <div className="space-y-6 max-w-xl">
+          <div className="card p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-ink-50 uppercase tracking-wider">Modo de Operação</h3>
+                <p className="text-[10px] text-ink-500">Defina como o sistema deve tratar as vendas.</p>
+              </div>
+              <div className="flex bg-ink-900 p-1 rounded-lg border border-ink-800">
+                <button 
+                  onClick={() => setFiscalEnabled(false)}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${!fiscalEnabled ? 'bg-ink-800 text-ink-50 shadow-sm' : 'text-ink-500 hover:text-ink-300'}`}
+                >
+                  Gerencial
+                </button>
+                <button 
+                  onClick={() => setFiscalEnabled(true)}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${fiscalEnabled ? 'bg-emerald-600 text-white shadow-sm' : 'text-ink-500 hover:text-ink-300'}`}
+                >
+                  Fiscal
+                </button>
+              </div>
+            </div>
+
+            {fiscalEnabled ? (
+              <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg flex gap-3">
+                <ShieldCheck className="text-emerald-500 shrink-0" size={18} />
+                <p className="text-[10px] text-emerald-200/70 leading-relaxed">
+                  <strong>MODO FISCAL ATIVO:</strong> As vendas finalizadas tentarão emitir nota fiscal eletrônica. 
+                  Certifique-se de que todos os dados abaixo e os dados tributários de produtos/serviços estão corretos.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-ink-800/30 border border-ink-800 p-3 rounded-lg flex gap-3">
+                <ShieldCheck className="text-ink-500 shrink-0" size={18} />
+                <p className="text-[10px] text-ink-500 leading-relaxed">
+                  <strong>MODO GERENCIAL:</strong> O sistema funcionará apenas para controle interno, sem envio de dados para a SEFAZ ou prefeituras.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={saveShop} className={`card p-6 space-y-4 transition-opacity ${!fiscalEnabled ? 'opacity-50 grayscale-[0.5]' : ''}`}>
+            <h3 className="text-sm font-bold text-ink-50 uppercase tracking-wider mb-2">Dados do Emitente</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">CNPJ</label>
+                <input className="input" value={cnpj} onChange={(e) => setCnpj(e.target.value.replace(/\D/g, ''))} placeholder="00.000.000/0000-00" disabled={!fiscalEnabled} />
+              </div>
+              <div>
+                <label className="label">Regime Tributário (CRT)</label>
+                <select className="input" value={crt} onChange={(e) => setCrt(+e.target.value)} disabled={!fiscalEnabled}>
+                  <option value={1}>Simples Nacional</option>
+                  <option value={2}>Simples Nacional - Excesso</option>
+                  <option value={3}>Regime Normal</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Inscrição Estadual</label>
+                <input className="input" value={ie} onChange={(e) => setIe(e.target.value)} disabled={!fiscalEnabled} />
+              </div>
+              <div>
+                <label className="label">Inscrição Municipal</label>
+                <input className="input" value={im} onChange={(e) => setIm(e.target.value)} disabled={!fiscalEnabled} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">CNAE Principal</label>
+                <input className="input" value={cnae} onChange={(e) => setCnae(e.target.value)} placeholder="9602-5/01" disabled={!fiscalEnabled} />
+              </div>
+              <div>
+                <label className="label">Código IBGE Município</label>
+                <input className="input" value={ibge} onChange={(e) => setIbge(e.target.value)} placeholder="2304400" disabled={!fiscalEnabled} />
+              </div>
+            </div>
+
+            <p className="text-[10px] text-ink-500 mt-2">Esses dados são obrigatórios para a emissão de notas fiscais eletrônicas.</p>
+            
+            <button className="btn-primary" disabled={!fiscalEnabled && barbershop?.fiscal_enabled === fiscalEnabled}>
+              Salvar Configurações
+            </button>
+          </form>
+
+          {fiscalEnabled && (
+            <div className="card p-6 space-y-4 border-dashed border-ink-800 bg-ink-900/50">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="text-ink-500" size={20} />
+                <div>
+                  <h4 className="text-sm font-bold text-ink-50">Certificado Digital A1</h4>
+                  <p className="text-[10px] text-ink-500">O upload do certificado será disponibilizado na Fase 2 do módulo fiscal.</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {tab === 'regras' && (

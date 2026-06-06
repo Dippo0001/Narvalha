@@ -28,6 +28,14 @@ export interface Barbershop {
   parent_barbershop_id: string | null;
   is_demo: boolean;
   owner_pin: string | null;
+  // Fiscal fields
+  fiscal_enabled: boolean;
+  cnpj: string | null;
+  inscricao_estadual: string | null;
+  inscricao_municipal: string | null;
+  cnae: string | null;
+  crt: number;
+  ibge_code: string | null;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {
@@ -47,16 +55,40 @@ export interface WorkingHour {
 export interface Service {
   id: string; barbershop_id: string; nome: string; duracao_min: number; valor: number;
   ativo: boolean; ordem: number;
+  // Fiscal fields
+  lc116_code: string | null;
+  codigo_tributacao_municipio: string | null;
+  iss_aliquota: number;
 }
 export interface Product {
   id: string; barbershop_id: string; nome: string; sku: string; custo: number; preco: number;
   estoque: number; estoque_min: number; comissao_percentual: number; ativo: boolean; foto_url: string;
+  // Fiscal fields
+  ncm: string | null;
+  cest: string | null;
+  origem: number;
+  cfop: string | null;
+  csosn: string | null;
+  icms_aliquota: number;
+  pis_aliquota: number;
+  cofins_aliquota: number;
 }
 export interface Client {
   id: string; barbershop_id: string; nome: string; telefone: string; email: string;
   aniversario: string | null; observacoes: string; tags: string[];
   lembrete_dias: number; ultima_visita: string | null;
   fidelidade_contagem: number;
+  // Fiscal fields
+  cpf_cnpj: string | null;
+  tipo_pessoa: 'PF' | 'PJ';
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cep: string | null;
+  cidade: string | null;
+  uf: string | null;
+  ibge_code: string | null;
 }
 export interface Appointment {
   id: string; barbershop_id: string; client_id: string; barber_id: string;

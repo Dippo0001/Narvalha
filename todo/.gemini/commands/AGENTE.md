@@ -41,10 +41,11 @@ Este documento serve como bússola para qualquer IA ou desenvolvedor que atue no
 - **Mobile-First Layout**: Implementado menu sanduíche (hambúrguer) e layout 100% responsivo e proporcional.
 - **Período de Teste**: Trial estendido de 7 para 14 dias para novas barbearias.
 - **Régua de Cobrança e Suspensão**: Implementada lógica de 10 dias de carência pós-vencimento. Inclui avisos preventivos (5 dias antes), popups diários de inadimplência (1x ao dia) e bloqueio total no 11º dia.
+- **Persistência de Login**: Migração da sessão de barbeiros para `localStorage` e implementação de "Lembrar E-mail" na tela de login, facilitando o acesso diário e melhorando a integração com gerenciadores de senha.
 
 ### 👥 Gestão de Clientes e LGPD
-... rest of file ...
-
+...
+*Última atualização: 31 de Maio de 2026*
 ## 🗺 Norte do Projeto (Roadmap)
 
 ### 🚀 Roadmap SaaS
@@ -73,4 +74,4 @@ Para que o desenvolvimento flua rápido, a IA deve possuir estas habilidades:
 - **DNS e Routing**: Conhecimento em subdomínios dinâmicos e redirecionamento de host.
 ---
 
-*Última atualização: 15 de Maio de 2026*
+*Última atualização: 31 de Maio de 2026*

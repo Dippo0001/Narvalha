@@ -58,7 +58,7 @@ function EstoqueTab() {
     setModal(null);
   };
 
-  const saveEdit = async (form: { custo: number; preco: number; foto_url: string }) => {
+  const saveEdit = async (form: Partial<Product>) => {
     if (!editModal) return;
     const { error } = await supabase.from('products').update(form).eq('id', editModal.id);
     if (error) return toast.error(error.message);
@@ -362,11 +362,25 @@ function PDVTab() {
 }
 
 /* ─── helpers ─────────────────────────────────────────────────── */
-function EditModal({ product, onSave }: { product: Product; onSave: (v: { custo: number; preco: number; foto_url: string }) => void }) {
+function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<Product>) => void }) {
   const { barbershop } = useAuth();
-  const [custo, setCusto] = useState(Number(product.custo));
-  const [preco, setPreco] = useState(Number(product.preco));
-  const [fotoUrl, setFotoUrl] = useState(product.foto_url ?? '');
+  const [form, setForm] = useState({
+    nome: product.nome,
+    sku: product.sku ?? '',
+    custo: Number(product.custo),
+    preco: Number(product.preco),
+    foto_url: product.foto_url ?? '',
+    comissao_percentual: Number(product.comissao_percentual ?? 0),
+    ativo: product.ativo ?? true,
+    ncm: product.ncm ?? '',
+    cest: product.cest ?? '',
+    origem: product.origem ?? 0,
+    cfop: product.cfop ?? '5102',
+    csosn: product.csosn ?? '102',
+    icms_aliquota: Number(product.icms_aliquota ?? 0),
+    pis_aliquota: Number(product.pis_aliquota ?? 0),
+    cofins_aliquota: Number(product.cofins_aliquota ?? 0),
+  });
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -379,20 +393,20 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: { custo:
     setUploading(false);
     if (error) return toast.error(error.message);
     const { data } = supabase.storage.from('products').getPublicUrl(path);
-    setFotoUrl(data.publicUrl);
+    setForm(prev => ({ ...prev, foto_url: data.publicUrl }));
     toast.success('Foto carregada');
   };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ custo, preco, foto_url: fotoUrl }); }} className="space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-5 max-h-[70vh] overflow-y-auto px-1">
       <div>
         <label className="label">Foto do produto</label>
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-hover-soft transition-colors relative overflow-hidden"
             style={{ borderColor: 'var(--border)' }} onClick={() => inputRef.current?.click()}>
-            {fotoUrl ? (
+            {form.foto_url ? (
               <>
-                <img src={fotoUrl} alt="foto" className="absolute inset-0 w-full h-full object-cover rounded-lg" />
+                <img src={form.foto_url} alt="foto" className="absolute inset-0 w-full h-full object-cover rounded-lg" />
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg">
                   <Camera size={20} className="text-white" />
                 </div>
@@ -406,8 +420,8 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: { custo:
           </div>
           <div className="flex-1 text-xs text-muted">
             <p>JPG ou PNG, até 5MB.</p>
-            {fotoUrl && (
-              <button type="button" className="flex items-center gap-1 mt-2 text-red-400 hover:text-red-300" onClick={() => setFotoUrl('')}>
+            {form.foto_url && (
+              <button type="button" className="flex items-center gap-1 mt-2 text-red-400 hover:text-red-300" onClick={() => setForm(prev => ({ ...prev, foto_url: '' }))}>
                 <X size={12} /> Remover foto
               </button>
             )}
@@ -416,19 +430,62 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: { custo:
             onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); }} />
         </div>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="label">Nome</label>
+          <input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required />
+        </div>
         <div>
           <label className="label">Custo (R$)</label>
-          <input className="input" type="number" step="0.01" min={0} value={custo} onChange={(e) => setCusto(+e.target.value)} required />
+          <input className="input" type="number" step="0.01" min={0} value={form.custo} onChange={(e) => setForm({ ...form, custo: +e.target.value })} required />
         </div>
         <div>
           <label className="label">Preço de venda (R$)</label>
-          <input className="input" type="number" step="0.01" min={0} value={preco} onChange={(e) => setPreco(+e.target.value)} required />
+          <input className="input" type="number" step="0.01" min={0} value={form.preco} onChange={(e) => setForm({ ...form, preco: +e.target.value })} required />
         </div>
       </div>
-      {preco > 0 && custo > 0 && (
-        <p className="text-xs text-muted">Margem: {(((preco - custo) / preco) * 100).toFixed(1)}% · Lucro por unidade: {formatBRL(preco - custo)}</p>
-      )}
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">NCM</label>
+            <input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" />
+          </div>
+          <div>
+            <label className="label">Origem</label>
+            <select className="input" value={form.origem} onChange={e => setForm({ ...form, origem: +e.target.value })}>
+              <option value={0}>0 - Nacional</option>
+              <option value={1}>1 - Estrangeira - Imp. Direta</option>
+              <option value={2}>2 - Estrangeira - Adq. Mercado Interno</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">CFOP Padrão</label>
+            <input className="input" value={form.cfop} onChange={e => setForm({ ...form, cfop: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">CSOSN / CST</label>
+            <input className="input" value={form.csosn} onChange={e => setForm({ ...form, csosn: e.target.value })} />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="label text-[10px]">ICMS (%)</label>
+            <input className="input" type="number" step="0.01" value={form.icms_aliquota} onChange={e => setForm({ ...form, icms_aliquota: +e.target.value })} />
+          </div>
+          <div>
+            <label className="label text-[10px]">PIS (%)</label>
+            <input className="input" type="number" step="0.01" value={form.pis_aliquota} onChange={e => setForm({ ...form, pis_aliquota: +e.target.value })} />
+          </div>
+          <div>
+            <label className="label text-[10px]">COFINS (%)</label>
+            <input className="input" type="number" step="0.01" value={form.cofins_aliquota} onChange={e => setForm({ ...form, cofins_aliquota: +e.target.value })} />
+          </div>
+        </div>
+      </div>
+
       <button className="btn-primary w-full" disabled={uploading}>Salvar alterações</button>
     </form>
   );
@@ -441,25 +498,54 @@ function ProductForm({ initial, onSave }: { initial: Product | null; onSave: (v:
     estoque: initial?.estoque ?? 0, estoque_min: initial?.estoque_min ?? 0,
     comissao_percentual: Number(initial?.comissao_percentual ?? 0),
     ativo: initial?.ativo ?? true, foto_url: initial?.foto_url ?? '',
+    ncm: initial?.ncm ?? '',
+    cest: initial?.cest ?? '',
+    origem: initial?.origem ?? 0,
+    cfop: initial?.cfop ?? '5102',
+    csosn: initial?.csosn ?? '102',
+    icms_aliquota: Number(initial?.icms_aliquota ?? 0),
+    pis_aliquota: Number(initial?.pis_aliquota ?? 0),
+    cofins_aliquota: Number(initial?.cofins_aliquota ?? 0),
   });
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
       <div><label className="label">Nome</label>
         <input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required autoFocus /></div>
-      <div><label className="label">SKU</label>
-        <input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">SKU</label>
+          <input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
+        <div><label className="label">Estoque inicial</label>
+          <input className="input" type="number" value={form.estoque} onChange={e => setForm({ ...form, estoque: +e.target.value })} /></div>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">Custo</label>
           <input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} /></div>
         <div><label className="label">Preço</label>
           <input className="input" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} /></div>
-        <div><label className="label">Estoque inicial</label>
-          <input className="input" type="number" value={form.estoque} onChange={e => setForm({ ...form, estoque: +e.target.value })} /></div>
         <div><label className="label">Estoque mín.</label>
           <input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} /></div>
         <div><label className="label">Comissão (%)</label>
           <input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} /></div>
       </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">NCM</label>
+            <input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" />
+          </div>
+          <div>
+            <label className="label">Origem</label>
+            <select className="input" value={form.origem} onChange={e => setForm({ ...form, origem: +e.target.value })}>
+              <option value={0}>0 - Nacional</option>
+              <option value={1}>1 - Estrangeira - Imp. Direta</option>
+              <option value={2}>2 - Estrangeira - Adq. Mercado Interno</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <button className="btn-primary w-full">Criar produto</button>
     </form>
   );

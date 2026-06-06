@@ -182,9 +182,69 @@ function SessionReport({ session, mvts, orders }: { session: any; mvts: any[]; o
           Obs: {session.observacoes_fechamento}
         </div>
       )}
+
+      {/* Notas Fiscais section */}
+      <FiscalNotesSection sessionId={session.id} />
     </div>
   );
 }
+
+function FiscalNotesSection({ sessionId }: { sessionId: string }) {
+  const { barbershop } = useAuth();
+  const { data: notes, isLoading } = useQuery({
+    queryKey: ['fiscal-notes', sessionId],
+    queryFn: async () => {
+      // Assuming fiscal_notes are linked to orders, and orders are linked to cash_sessions
+      const { data: orders } = await supabase.from('orders').select('id').eq('cash_session_id', sessionId);
+      if (!orders || orders.length === 0) return [];
+      
+      const orderIds = orders.map(o => o.id);
+      const { data } = await supabase.from('fiscal_notes')
+        .select('*')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+      return (data ?? []) as FiscalNote[];
+    }
+  });
+
+  if (!barbershop?.fiscal_enabled) return null;
+
+  return (
+    <div className="pt-4 border-t border-ink-800 space-y-3">
+      <div className="text-xs text-muted uppercase tracking-wide">Notas Fiscais Emitidas</div>
+      
+      {isLoading ? (
+        <div className="h-10 animate-pulse bg-ink-800 rounded-lg" />
+      ) : notes && notes.length > 0 ? (
+        <div className="space-y-2">
+          {notes.map(note => (
+            <div key={note.id} className="flex items-center justify-between p-3 rounded-lg bg-ink-900 border border-ink-800">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-tighter">
+                  {note.tipo} <span className="text-ink-500">#{note.numero ?? '—'}</span>
+                </div>
+                <div className="text-[10px] text-ink-500 mt-0.5">
+                  Status: <span className="font-bold">{note.status.toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {note.pdf_url && (
+                  <a href={note.pdf_url} target="_blank" rel="noreferrer" className="btn-ghost p-1.5 text-xs">
+                    <Receipt size={14} />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[10px] text-ink-600 italic">Nenhuma nota emitida neste período.</p>
+      )}
+    </div>
+  );
+}
+
+import type { FiscalNote } from '../types/db';
 
 function Skeleton() {
   return (

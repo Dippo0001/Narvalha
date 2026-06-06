@@ -36,6 +36,9 @@ export interface Barbershop {
   cnae: string | null;
   crt: number;
   ibge_code: string | null;
+  certificate_path: string | null;
+  certificate_password: string | null;
+  certificate_expires_at: string | null;
 }
 export interface Member { id: string; user_id: string; barbershop_id: string; role: Role; ativo: boolean; }
 export interface Barber {
@@ -72,6 +75,9 @@ export interface Product {
   icms_aliquota: number;
   pis_aliquota: number;
   cofins_aliquota: number;
+  // Dual Stock
+  estoque_geral: number;
+  estoque_fiscal: number;
 }
 export interface Client {
   id: string; barbershop_id: string; nome: string; telefone: string; email: string;
@@ -108,4 +114,27 @@ export interface OrderItem {
 export interface CashMovement {
   id: string; barbershop_id: string; tipo: 'entrada' | 'saida'; categoria: string;
   descricao: string; valor: number; data: string; ref_order_id: string | null;
+}
+
+export type FiscalNoteType = 'nfe' | 'nfce' | 'nfse';
+export type FiscalNoteStatus = 'pending' | 'processing' | 'authorized' | 'rejected' | 'denied' | 'cancelled' | 'error';
+
+export interface FiscalNote {
+  id: string;
+  barbershop_id: string;
+  order_id: string | null;
+  client_id: string | null;
+  tipo: FiscalNoteType;
+  status: FiscalNoteStatus;
+  numero: number | null;
+  serie: number | null;
+  chave_acesso: string | null;
+  protocolo: string | null;
+  xml_url: string | null;
+  pdf_url: string | null;
+  error_message: string | null;
+  error_code: string | null;
+  provider_id: string | null;
+  created_at: string;
+  updated_at: string;
 }

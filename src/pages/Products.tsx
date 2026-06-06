@@ -4,54 +4,44 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
-import {
-  Plus, Package, AlertTriangle, Pencil, Camera, X,
-  ShoppingCart, Minus, Trash2, CheckCircle2,
+import { 
+  Plus, Search, Package, AlertTriangle, ArrowUpRight, ArrowDownRight, 
+  History, Camera, X, Check, Save, Receipt, Calculator
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBRL } from '../lib/utils';
-import type { Product } from '../types/db';
-
-type Tab = 'estoque' | 'pdv';
-
-interface CartItem { product: Product; qtd: number }
+import type { Product, FiscalNote } from '../types/db';
 
 export default function Products() {
-  return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <PageHeader title="Produtos" subtitle="Gestão de estoque e catálogo" />
-      <EstoqueTab />
-    </div>
-  );
-}
-
-const PRODUCT_LIMITS: Record<string, number> = { silver: 10, gold: 20, platinum: 999, trial: 999 };
-
-/* ─── Estoque ──────────────────────────────────────────────────── */
-function EstoqueTab() {
   const { barbershop } = useAuth();
   const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'inventory' | 'pdv' | 'history'>('inventory');
   const [modal, setModal] = useState<Product | 'new' | null>(null);
   const [stockModal, setStockModal] = useState<Product | null>(null);
   const [editModal, setEditModal] = useState<Product | null>(null);
 
-  const { data: products } = useQuery({
+  const { data: products, isLoading } = useQuery({
     queryKey: ['products', barbershop?.id],
     enabled: !!barbershop,
     queryFn: async () => {
       const { data } = await supabase.from('products').select('*').eq('barbershop_id', barbershop!.id).order('nome');
-      return (data ?? []) as Product[];
+      return data as Product[];
     },
   });
 
-  const canAddProduct = (products?.length ?? 0) < PRODUCT_LIMITS[barbershop?.plan || 'silver'];
+  const filtered = (products ?? []).filter(p => 
+    p.nome.toLowerCase().includes(search.toLowerCase()) || 
+    p.sku?.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const save = async (form: Partial<Product>) => {
+  const saveProduct = async (form: any) => {
     if (!barbershop) return;
     const payload = { ...form, barbershop_id: barbershop.id };
-    const { error } = modal === 'new'
+    const { error } = modal === 'new' 
       ? await supabase.from('products').insert(payload)
       : await supabase.from('products').update(payload).eq('id', (modal as Product).id);
+    
     if (error) return toast.error(error.message);
     toast.success('Produto salvo');
     qc.invalidateQueries({ queryKey: ['products'] });
@@ -67,296 +57,94 @@ function EstoqueTab() {
     setEditModal(null);
   };
 
-  const addStock = async (product: Product, qtd: number, motivo: string) => {
-    const { error } = await supabase.from('stock_movements').insert({ product_id: product.id, tipo: 'entrada', qtd, motivo });
+  const updateStock = async (p: Product, qtd: number, motivo: string) => {
+    const { error } = await supabase.rpc('update_product_stock', {
+      p_id: p.id,
+      p_qtd: qtd,
+      p_motivo: motivo
+    });
     if (error) return toast.error(error.message);
-    await supabase.from('products').update({ estoque: product.estoque + qtd }).eq('id', product.id);
     toast.success('Estoque atualizado');
     qc.invalidateQueries({ queryKey: ['products'] });
     setStockModal(null);
   };
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-xs text-ink-500 font-medium">
-          Capacidade do catálogo: <span className="text-ink-300 font-bold">{products?.length ?? 0} de {PRODUCT_LIMITS[barbershop?.plan || 'silver']}</span>
-        </div>
-        <button 
-          className="btn-primary" 
-          disabled={!canAddProduct}
-          onClick={() => {
-            if (!canAddProduct) return toast.error('Limite de produtos atingido. Faça upgrade para aumentar seu catálogo!');
-            setModal('new');
-          }}
-        >
-          <Plus size={15} /> Novo produto
-        </button>
+    <div className="p-8 max-w-6xl mx-auto">
+      <PageHeader title="Produtos e Estoque" />
+
+      <div className="flex gap-1 border-b border-ink-800 mb-6">
+        <button onClick={() => setTab('inventory')} 
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'inventory' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Estoque</button>
+        <button onClick={() => setTab('pdv')} 
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'pdv' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Frente de Caixa</button>
+        <button onClick={() => setTab('history')} 
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'history' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Movimentações</button>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
-              <th className="text-left p-4 text-xs font-medium text-muted uppercase tracking-wide w-14"></th>
-              <th className="text-left p-4 text-xs font-medium text-muted uppercase tracking-wide">Produto</th>
-              <th className="text-left text-xs font-medium text-muted uppercase tracking-wide">SKU</th>
-              <th className="text-right text-xs font-medium text-muted uppercase tracking-wide">Custo</th>
-              <th className="text-right text-xs font-medium text-muted uppercase tracking-wide">Preço</th>
-              <th className="text-right text-xs font-medium text-muted uppercase tracking-wide pr-4">Estoque</th>
-              <th className="p-4 text-xs font-medium text-muted uppercase tracking-wide text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
-            {(!products || products.length === 0) && (
-              <tr><td colSpan={7} className="p-12 text-center">
-                <Package size={32} className="mx-auto text-muted mb-3" />
-                <p className="text-muted text-sm">Nenhum produto cadastrado</p>
-              </td></tr>
-            )}
-            {(products ?? []).map((p) => {
-              const low = p.estoque <= p.estoque_min;
-              return (
-                <tr key={p.id} className="hover:bg-hover-soft transition-colors">
-                  <td className="pl-4 py-3">
-                    {p.foto_url ? (
-                      <img src={p.foto_url} alt={p.nome} className="w-10 h-10 rounded-md object-cover border" style={{ borderColor: 'var(--border)' }} />
-                    ) : (
-                      <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ background: 'var(--bg-hover)' }}>
-                        <Package size={16} className="text-muted" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 font-medium">{p.nome}{!p.ativo && <span className="ml-2 text-xs text-muted">inativo</span>}</td>
-                  <td className="text-muted">{p.sku || '—'}</td>
-                  <td className="text-right text-muted">{formatBRL(Number(p.custo))}</td>
-                  <td className="text-right font-medium">{formatBRL(Number(p.preco))}</td>
-                  <td className="text-right pr-4">
-                    <span className={low ? 'text-amber-400' : ''}>
-                      {low && <AlertTriangle size={12} className="inline mr-1" />}
-                      {p.estoque}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => setEditModal(p)} className="btn-ghost px-2 py-1.5 text-xs gap-1.5">
-                        <Pencil size={13} /> Editar
-                      </button>
-                      <button className="btn-ghost px-2 py-1.5 text-xs" onClick={() => setStockModal(p)}>
-                        + Estoque
-                      </button>
+      {tab === 'inventory' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" size={18} />
+              <input className="input pl-10" placeholder="Buscar por nome ou SKU..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <button className="btn-primary" onClick={() => setModal('new')}><Plus size={18} /> Novo Produto</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isLoading ? [1,2,3].map(i => <div key={i} className="card h-40 animate-pulse bg-ink-900/50" />) : 
+             filtered.map(p => (
+              <div key={p.id} className="card p-4 hover:border-ink-700 transition-colors group">
+                <div className="flex gap-4">
+                  <div className="w-16 h-16 rounded-lg bg-ink-900 border border-ink-800 flex items-center justify-center overflow-hidden shrink-0">
+                    {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover" /> : <Package className="text-ink-700" size={24} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-ink-50 truncate">{p.nome}</h3>
+                    <p className="text-[10px] text-ink-500 mb-1">{p.sku || 'Sem SKU'}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-ink-100">{formatBRL(p.preco)}</span>
+                      {p.estoque <= p.estoque_min && <AlertTriangle size={14} className="text-amber-500" />}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-ink-800 grid grid-cols-2 gap-2">
+                  <div className="text-center p-2 rounded bg-ink-950/50 border border-ink-800/50">
+                    <p className="text-[9px] text-ink-500 uppercase font-bold tracking-tighter">Geral</p>
+                    <p className="text-lg font-bold text-ink-100 leading-none mt-1">{p.estoque_geral}</p>
+                  </div>
+                  <div className="text-center p-2 rounded bg-emerald-500/5 border border-emerald-500/10">
+                    <p className="text-[9px] text-emerald-500 uppercase font-bold tracking-tighter">Padrão (NF)</p>
+                    <p className="text-lg font-bold text-emerald-50 leading-none mt-1">{p.estoque_fiscal}</p>
+                  </div>
+                </div>
 
-      <Modal open={modal === 'new'} onClose={() => setModal(null)} title="Novo produto">
-        <ProductForm initial={null} onSave={save} />
+                <div className="mt-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="btn-secondary flex-1 py-1.5 text-[10px]" onClick={() => setEditModal(p)}>Editar</button>
+                  <button className="btn-ghost py-1.5 text-[10px]" onClick={() => setStockModal(p)}>Entrada</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'pdv' && <PDVTab products={products ?? []} />}
+      {tab === 'history' && <HistoryTab />}
+
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Novo Produto' : 'Editar Produto'}>
+        <ProductForm initial={modal === 'new' ? null : modal} onSave={saveProduct} />
       </Modal>
-      <Modal open={!!editModal} onClose={() => setEditModal(null)} title={`Editar — ${editModal?.nome ?? ''}`}>
+
+      <Modal open={!!stockModal} onClose={() => setStockModal(null)} title="Registrar Entrada de Estoque">
+        {stockModal && <StockForm onSave={(qtd, motivo) => updateStock(stockModal, qtd, motivo)} />}
+      </Modal>
+
+      <Modal open={!!editModal} onClose={() => setEditModal(null)} title="Configurações do Produto">
         {editModal && <EditModal product={editModal} onSave={saveEdit} />}
       </Modal>
-      <Modal open={!!stockModal} onClose={() => setStockModal(null)} title={`Entrada de estoque — ${stockModal?.nome ?? ''}`}>
-        {stockModal && <StockForm onSave={(qtd, motivo) => addStock(stockModal, qtd, motivo)} />}
-      </Modal>
-    </>
-  );
-}
-
-/* ─── PDV tab ──────────────────────────────────────────────────── */
-function PDVTab() {
-  const { barbershop } = useAuth();
-  const qc = useQueryClient();
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [desconto, setDesconto] = useState(0);
-  const [pagamento, setPagamento] = useState('pix');
-  const [done, setDone] = useState<{ total: number } | null>(null);
-
-  const { data: products } = useQuery({
-    queryKey: ['products', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('products').select('*').eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome');
-      return (data ?? []) as Product[];
-    },
-  });
-
-  const { data: payMethods } = useQuery({
-    queryKey: ['payment_methods', barbershop?.id],
-    enabled: !!barbershop,
-    queryFn: async () => {
-      const { data } = await supabase.from('payment_methods').select('*')
-        .eq('barbershop_id', barbershop!.id).eq('ativo', true).order('nome');
-      return data ?? [];
-    },
-  });
-
-  const addToCart = (p: Product) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.product.id === p.id);
-      if (existing) {
-        if (existing.qtd >= p.estoque) { toast.error('Estoque insuficiente'); return prev; }
-        return prev.map(i => i.product.id === p.id ? { ...i, qtd: i.qtd + 1 } : i);
-      }
-      if (p.estoque <= 0) { toast.error('Sem estoque'); return prev; }
-      return [...prev, { product: p, qtd: 1 }];
-    });
-  };
-
-  const changeQtd = (id: string, delta: number) => {
-    setCart(prev => prev.map(i => {
-      if (i.product.id !== id) return i;
-      const next = i.qtd + delta;
-      if (next <= 0) return i;
-      if (next > i.product.estoque) { toast.error('Estoque insuficiente'); return i; }
-      return { ...i, qtd: next };
-    }));
-  };
-
-  const removeFromCart = (id: string) => setCart(prev => prev.filter(i => i.product.id !== id));
-
-  const subtotal = cart.reduce((s, i) => s + Number(i.product.preco) * i.qtd, 0);
-  const total = Math.max(0, subtotal - desconto);
-
-  const finalize = async () => {
-    if (!barbershop || cart.length === 0) return toast.error('Carrinho vazio');
-    for (const item of cart) {
-      const { error } = await supabase.rpc('product_pdv_sale', {
-        p_barbershop_id: barbershop.id,
-        p_product_id: item.product.id,
-        p_qtd: item.qtd,
-        p_forma: pagamento,
-        p_desconto: item.qtd === cart[cart.length - 1].qtd ? desconto : 0,
-      });
-      if (error) return toast.error(`${item.product.nome}: ${error.message}`);
-    }
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setDone({ total });
-    setCart([]);
-    setDesconto(0);
-  };
-
-  if (done) return (
-    <div className="card p-12 text-center">
-      <CheckCircle2 size={48} className="mx-auto text-emerald-400 mb-4" />
-      <p className="text-xl font-semibold mb-1">Venda finalizada!</p>
-      <p className="text-muted mb-6">Total cobrado: <strong>{formatBRL(done.total)}</strong></p>
-      <button className="btn-primary mx-auto" onClick={() => setDone(null)}>Nova venda</button>
-    </div>
-  );
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* product grid */}
-      <div className="lg:col-span-2">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {(!products || products.length === 0) && (
-            <div className="col-span-3 card p-8 text-center text-muted text-sm">
-              Nenhum produto ativo cadastrado.
-            </div>
-          )}
-          {(products ?? []).map((p) => {
-            const inCart = cart.find(i => i.product.id === p.id);
-            const outOfStock = p.estoque <= 0;
-            return (
-              <button
-                key={p.id}
-                onClick={() => addToCart(p)}
-                disabled={outOfStock}
-                className={`card p-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 relative ${inCart ? 'ring-2' : ''}`}
-                style={inCart ? { '--tw-ring-color': 'var(--text)' } as any : {}}
-              >
-                {p.foto_url ? (
-                  <img src={p.foto_url} alt={p.nome} className="w-full h-24 object-cover rounded-md mb-2" />
-                ) : (
-                  <div className="w-full h-24 rounded-md flex items-center justify-center mb-2" style={{ background: 'var(--bg-hover)' }}>
-                    <Package size={24} className="text-muted" />
-                  </div>
-                )}
-                <div className="text-sm font-medium leading-tight truncate">{p.nome}</div>
-                <div className="text-xs text-muted mt-0.5">{formatBRL(Number(p.preco))}</div>
-                <div className={`text-[10px] mt-1 ${p.estoque <= p.estoque_min ? 'text-amber-400' : 'text-muted'}`}>
-                  {outOfStock ? 'Sem estoque' : `${p.estoque} em estoque`}
-                </div>
-                {inCart && (
-                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                    style={{ background: 'var(--text)', color: 'var(--bg)' }}>
-                    {inCart.qtd}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* cart */}
-      <div className="card p-4 space-y-4 h-fit lg:sticky lg:top-4">
-        <h3 className="font-semibold flex items-center gap-2">
-          <ShoppingCart size={16} /> Carrinho
-        </h3>
-
-        {cart.length === 0 && (
-          <p className="text-xs text-muted text-center py-4">Clique em um produto para adicionar</p>
-        )}
-
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
-          {cart.map((item) => (
-            <div key={item.product.id} className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{item.product.nome}</div>
-                <div className="text-xs text-muted">{formatBRL(Number(item.product.preco))} × {item.qtd}</div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => changeQtd(item.product.id, -1)} className="btn-ghost p-1"><Minus size={12} /></button>
-                <span className="text-sm w-5 text-center">{item.qtd}</span>
-                <button onClick={() => changeQtd(item.product.id, 1)} className="btn-ghost p-1"><Plus size={12} /></button>
-                <button onClick={() => removeFromCart(item.product.id)} className="btn-ghost p-1 text-red-400"><Trash2 size={12} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {cart.length > 0 && (
-          <>
-            <hr style={{ borderColor: 'var(--border)' }} />
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-muted">
-                <span>Subtotal</span><span>{formatBRL(subtotal)}</span>
-              </div>
-              <div className="flex justify-between items-center text-muted">
-                <span>Desconto</span>
-                <input className="input w-24 text-right text-sm py-1" type="number" step="0.01" min={0}
-                  value={desconto} onChange={e => setDesconto(+e.target.value)} />
-              </div>
-              <div className="flex justify-between font-semibold text-base pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                <span>Total</span><span>{formatBRL(total)}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Forma de pagamento</label>
-              <select className="input" value={pagamento} onChange={e => setPagamento(e.target.value)}>
-                <option value="pix">PIX</option>
-                <option value="dinheiro">Dinheiro</option>
-                <option value="debito">Débito</option>
-                <option value="credito">Crédito</option>
-                {(payMethods ?? []).map((m: any) => (
-                  <option key={m.id} value={m.id}>{m.nome}</option>
-                ))}
-              </select>
-            </div>
-
-            <button onClick={finalize} className="btn-primary w-full">
-              Finalizar venda · {formatBRL(total)}
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -380,6 +168,8 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<
     icms_aliquota: Number(product.icms_aliquota ?? 0),
     pis_aliquota: Number(product.pis_aliquota ?? 0),
     cofins_aliquota: Number(product.cofins_aliquota ?? 0),
+    estoque_geral: product.estoque_geral ?? 0,
+    estoque_fiscal: product.estoque_fiscal ?? 0,
   });
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -398,7 +188,7 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<
   };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-5 max-h-[70vh] overflow-y-auto px-1">
+    <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal }); }} className="space-y-5 max-h-[70vh] overflow-y-auto px-1">
       <div>
         <label className="label">Foto do produto</label>
         <div className="flex items-center gap-4">
@@ -447,7 +237,22 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<
       </div>
 
       <div className="pt-4 border-t border-ink-800 space-y-4">
-        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest flex items-center gap-2"><Calculator size={14} /> Gestão de Estoque</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-ink-900/50 p-3 rounded-lg border border-ink-800">
+            <label className="label text-[10px] text-ink-400">Estoque GERAL (Sem NF)</label>
+            <input className="input mt-1 font-bold text-lg" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
+          </div>
+          <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/10">
+            <label className="label text-[10px] text-emerald-400">Estoque PADRÃO (Com NF)</label>
+            <input className="input mt-1 font-bold text-lg text-emerald-50" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
+          </div>
+        </div>
+        <p className="text-[10px] text-ink-600 italic -mt-2">O estoque total deste item é: {form.estoque_geral + form.estoque_fiscal}</p>
+      </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest flex items-center gap-2"><Receipt size={14} /> Informações Fiscais</h4>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">NCM</label>
@@ -495,7 +300,7 @@ function ProductForm({ initial, onSave }: { initial: Product | null; onSave: (v:
   const [form, setForm] = useState({
     nome: initial?.nome ?? '', sku: initial?.sku ?? '',
     custo: Number(initial?.custo ?? 0), preco: Number(initial?.preco ?? 0),
-    estoque: initial?.estoque ?? 0, estoque_min: initial?.estoque_min ?? 0,
+    estoque_min: initial?.estoque_min ?? 0,
     comissao_percentual: Number(initial?.comissao_percentual ?? 0),
     ativo: initial?.ativo ?? true, foto_url: initial?.foto_url ?? '',
     ncm: initial?.ncm ?? '',
@@ -506,26 +311,42 @@ function ProductForm({ initial, onSave }: { initial: Product | null; onSave: (v:
     icms_aliquota: Number(initial?.icms_aliquota ?? 0),
     pis_aliquota: Number(initial?.pis_aliquota ?? 0),
     cofins_aliquota: Number(initial?.cofins_aliquota ?? 0),
+    estoque_geral: initial?.estoque_geral ?? 0,
+    estoque_fiscal: initial?.estoque_fiscal ?? 0,
   });
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+    <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal }); }} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
       <div><label className="label">Nome</label>
         <input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required autoFocus /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">SKU</label>
           <input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
-        <div><label className="label">Estoque inicial</label>
-          <input className="input" type="number" value={form.estoque} onChange={e => setForm({ ...form, estoque: +e.target.value })} /></div>
+        <div><label className="label">Comissão (%)</label>
+          <input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">Custo</label>
           <input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} /></div>
         <div><label className="label">Preço</label>
           <input className="input" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} /></div>
-        <div><label className="label">Estoque mín.</label>
-          <input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} /></div>
-        <div><label className="label">Comissão (%)</label>
-          <input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} /></div>
+      </div>
+
+      <div className="pt-4 border-t border-ink-800 space-y-3">
+        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Estoque Inicial</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label text-[10px]">GERAL (Sem NF)</label>
+            <input className="input" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
+          </div>
+          <div>
+            <label className="label text-[10px]">PADRÃO (Com NF)</label>
+            <input className="input" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <label className="label text-[10px]">Estoque Mínimo (Alerta)</label>
+          <input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} />
+        </div>
       </div>
 
       <div className="pt-4 border-t border-ink-800 space-y-4">
@@ -562,5 +383,166 @@ function StockForm({ onSave }: { onSave: (qtd: number, motivo: string) => void }
         <input className="input" value={motivo} onChange={e => setMotivo(e.target.value)} /></div>
       <button className="btn-primary w-full">Registrar entrada</button>
     </form>
+  );
+}
+
+function PDVTab({ products }: { products: Product[] }) {
+  const { barbershop } = useAuth();
+  const qc = useQueryClient();
+  const [cart, setCart] = useState<{ product: Product; qtd: number }[]>([]);
+  const [pagamento, setPagamento] = useState<any>('dinheiro');
+  const [desconto, setDesconto] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState<{ total: number } | null>(null);
+
+  const total = cart.reduce((acc, item) => acc + (item.product.preco * item.qtd), 0) - desconto;
+
+  const addToCart = (p: Product) => {
+    const existing = cart.find(item => item.product.id === p.id);
+    if (existing) {
+      setCart(cart.map(item => item.product.id === p.id ? { ...item, qtd: item.qtd + 1 } : item));
+    } else {
+      setCart([...cart, { product: p, qtd: 1 }]);
+    }
+  };
+
+  const finalize = async () => {
+    if (!barbershop || cart.length === 0) return toast.error('Carrinho vazio');
+    setLoading(true);
+    let orderId: string | null = null;
+    
+    for (const item of cart) {
+      const { data, error } = await supabase.rpc('product_pdv_sale', {
+        p_barbershop_id: barbershop.id,
+        p_product_id: item.product.id,
+        p_qtd: item.qtd,
+        p_forma: pagamento,
+        p_desconto: item.qtd === cart[cart.length - 1].qtd ? desconto : 0,
+      });
+      if (error) {
+        setLoading(false);
+        return toast.error(`${item.product.nome}: ${error.message}`);
+      }
+      if (data) orderId = data;
+    }
+
+    // Fiscal Note Emission
+    if (barbershop.fiscal_enabled && orderId) {
+      try {
+        await supabase.functions.invoke('emit-fiscal-note', {
+          body: { orderId, barbershopId: barbershop.id, type: 'nfce' }
+        });
+        toast.success('Nota Fiscal em processamento');
+      } catch (err) {
+        console.error('Fiscal emission failed:', err);
+        toast.error('Erro ao iniciar emissão fiscal');
+      }
+    }
+
+    qc.invalidateQueries({ queryKey: ['products'] });
+    setDone({ total });
+    setCart([]);
+    setDesconto(0);
+    setLoading(false);
+  };
+
+  if (done) {
+    return (
+      <div className="card p-12 text-center space-y-6">
+        <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
+          <Check size={40} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-ink-50">Venda Finalizada!</h2>
+          <p className="text-ink-500 mt-1">Total recebido: {formatBRL(done.total)}</p>
+        </div>
+        <button className="btn-primary w-full max-w-xs mx-auto" onClick={() => setDone(null)}>Nova Venda</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          {products.filter(p => p.ativo).map(p => (
+            <button key={p.id} onClick={() => addToCart(p)}
+              className="card p-3 text-left hover:border-ink-50 transition-colors flex flex-col gap-2 group">
+              <div className="aspect-square rounded bg-ink-900 border border-ink-800 flex items-center justify-center overflow-hidden">
+                {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover" /> : <Package size={20} className="text-ink-700" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-bold text-ink-50 truncate leading-tight mb-1">{p.nome}</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-500">{formatBRL(p.preco)}</span>
+                  <span className="text-[9px] text-ink-500 font-medium">Qtd: {p.estoque_geral + p.estoque_fiscal}</span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="card flex flex-col h-[500px]">
+          <div className="p-4 border-b border-ink-800 flex items-center justify-between">
+            <h3 className="font-bold text-ink-100 flex items-center gap-2"><Receipt size={16} /> Carrinho</h3>
+            <span className="text-[10px] text-ink-500 uppercase font-bold tracking-widest">{cart.length} itens</span>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {cart.map(item => (
+              <div key={item.product.id} className="flex justify-between items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-ink-50 truncate">{item.product.nome}</div>
+                  <div className="text-[10px] text-ink-500">{item.qtd}x {formatBRL(item.product.preco)}</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button className="p-1 text-ink-500 hover:text-red-400" onClick={() => setCart(cart.filter(c => c.product.id !== item.product.id))}><X size={14} /></button>
+                </div>
+              </div>
+            ))}
+            {cart.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-ink-600 space-y-2 italic">
+                <Package size={32} strokeWidth={1} />
+                <p className="text-xs">Carrinho vazio</p>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-ink-900/50 border-t border-ink-800 space-y-3">
+            <div className="flex justify-between items-center text-ink-400 text-xs">
+              <span>Desconto</span>
+              <input type="number" className="bg-transparent border-none text-right w-16 focus:ring-0 p-0 text-ink-100 font-bold" 
+                value={desconto} onChange={e => setDesconto(+e.target.value)} />
+            </div>
+            <div className="flex justify-between items-center text-lg font-bold text-ink-50">
+              <span>Total</span>
+              <span>{formatBRL(total)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select className="input py-2 text-xs" value={pagamento} onChange={e => setPagamento(e.target.value)}>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="debito">Débito</option>
+                <option value="credito">Crédito</option>
+              </select>
+              <button className="btn-primary py-2" onClick={finalize} disabled={loading || cart.length === 0}>
+                {loading ? 'Processando…' : 'Finalizar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryTab() {
+  return (
+    <div className="card p-12 text-center text-ink-600 italic border-dashed">
+      <History size={32} className="mx-auto mb-3 opacity-20" />
+      <p className="text-xs">Histórico de movimentações em tempo real</p>
+    </div>
   );
 }

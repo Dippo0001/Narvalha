@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { 
   Plus, Scissors, Package, Pencil, Trash2, Power, 
-  AlertTriangle, Camera, X, MoreVertical 
+  AlertTriangle, Camera, X, MoreVertical, Receipt, Calculator, Settings2, ShieldCheck, Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBRL } from '../lib/utils';
@@ -21,7 +21,6 @@ export default function Catalog() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('servicos');
   const [modal, setModal] = useState<{ type: 'service' | 'product'; data: any | 'new' } | null>(null);
-  const [stockModal, setStockModal] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Queries
@@ -69,7 +68,9 @@ export default function Catalog() {
   const handleSaveProduct = async (form: any) => {
     if (!barbershop) return;
     setLoading(true);
-    const payload = { ...form, barbershop_id: barbershop.id };
+    // Sync total stock
+    const totalEstoque = (form.estoque_geral || 0) + (form.estoque_fiscal || 0);
+    const payload = { ...form, barbershop_id: barbershop.id, estoque: totalEstoque };
     const isNew = modal?.data === 'new';
 
     const { error } = isNew
@@ -105,20 +106,6 @@ export default function Catalog() {
     if (error) return toast.error(error.message);
     toast.success(currentStatus ? 'Desativado' : 'Ativado');
     qc.invalidateQueries({ queryKey: [type === 'service' ? 'services' : 'products'] });
-  };
-
-  const handleAddStock = async (product: Product, qtd: number, motivo: string) => {
-    setLoading(true);
-    const { error } = await supabase.from('stock_movements').insert({ product_id: product.id, tipo: 'entrada', qtd, motivo });
-    if (error) {
-      setLoading(false);
-      return toast.error(error.message);
-    }
-    await supabase.from('products').update({ estoque: product.estoque + qtd }).eq('id', product.id);
-    setLoading(false);
-    toast.success('Estoque atualizado');
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setStockModal(null);
   };
 
   return (
@@ -178,28 +165,49 @@ export default function Catalog() {
             ))}
           </div>
         ) : (
-          <div className="card divide-y divide-ink-800">
-            {loadingProducts && <div className="p-8 text-center animate-pulse text-ink-500 text-sm">Carregando produtos...</div>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {loadingProducts && [1,2,3].map(i => <div key={i} className="card h-40 animate-pulse" />)}
             {!loadingProducts && usedProducts === 0 && (
-              <div className="p-12 text-center">
+              <div className="col-span-full card p-12 text-center">
                 <Package size={32} className="mx-auto text-ink-700 mb-3" />
                 <p className="text-sm text-ink-500">Nenhum produto cadastrado</p>
               </div>
             )}
             {(products ?? []).map((p) => (
-              <ItemRow 
-                key={p.id} 
-                title={p.nome} 
-                subtitle={p.sku ? `SKU: ${p.sku} · Est: ${p.estoque}` : `Estoque: ${p.estoque}`}
-                value={formatBRL(Number(p.preco))}
-                active={p.ativo}
-                imageUrl={p.foto_url}
-                isLowStock={p.estoque <= p.estoque_min}
-                onEdit={() => setModal({ type: 'product', data: p })}
-                onToggle={() => handleToggleActive('product', p.id, p.ativo)}
-                onDelete={() => handleDelete('product', p.id)}
-                onStock={() => setStockModal(p)}
-              />
+              <div key={p.id} className={`card p-4 hover:border-ink-700 transition-colors group relative ${!p.ativo ? 'opacity-60 grayscale' : ''}`}>
+                <div className="flex gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-lg bg-ink-900 border border-border shrink-0 overflow-hidden flex items-center justify-center">
+                    {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover" /> : <Package size={20} className="text-ink-700" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-ink-50 truncate">{p.nome}</span>
+                      {(p.estoque_geral + p.estoque_fiscal) <= p.estoque_min && <AlertTriangle size={14} className="text-amber-500" />}
+                    </div>
+                    <div className="text-[10px] text-ink-500 mt-0.5 truncate">{p.sku || 'Sem SKU'} · {formatBRL(Number(p.preco))}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-ink-950/50 rounded p-1.5 border border-ink-800/50 text-center">
+                    <p className="text-[8px] font-black text-ink-500 uppercase tracking-tighter">Geral</p>
+                    <p className="text-sm font-bold text-ink-100">{p.estoque_geral}</p>
+                  </div>
+                  <div className="bg-emerald-500/5 rounded p-1.5 border border-emerald-500/10 text-center">
+                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Fiscal</p>
+                    <p className="text-sm font-bold text-emerald-50">{p.estoque_fiscal}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setModal({ type: 'product', data: p })} className="btn-secondary flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest">
+                    <Pencil size={12} className="mr-1" /> Editar
+                  </button>
+                  <button onClick={() => handleToggleActive('product', p.id, p.ativo)} className="btn-ghost p-1.5" title={p.ativo ? 'Desativar' : 'Ativar'}>
+                    <Power size={14} className={p.ativo ? 'text-emerald-500' : 'text-red-500'} />
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -226,15 +234,11 @@ export default function Catalog() {
           />
         )}
       </Modal>
-
-      <Modal open={!!stockModal} onClose={() => setStockModal(null)} title={`Entrada de estoque — ${stockModal?.nome ?? ''}`}>
-        {stockModal && <StockForm onSave={(qtd, motivo) => handleAddStock(stockModal, qtd, motivo)} loading={loading} />}
-      </Modal>
     </div>
   );
 }
 
-function ItemRow({ title, subtitle, value, active, imageUrl, isLowStock, onEdit, onToggle, onDelete, onStock }: any) {
+function ItemRow({ title, subtitle, value, active, imageUrl, isLowStock, onEdit, onToggle, onDelete }: any) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -268,11 +272,6 @@ function ItemRow({ title, subtitle, value, active, imageUrl, isLowStock, onEdit,
               <button onClick={() => { onEdit(); setShowMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-100 hover:bg-ink-800 transition-colors">
                 <Pencil size={14} /> Editar
               </button>
-              {onStock && (
-                <button onClick={() => { onStock(); setShowMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-100 hover:bg-ink-800 transition-colors">
-                  <Plus size={14} /> + Estoque
-                </button>
-              )}
               <button onClick={() => { onToggle(); setShowMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-100 hover:bg-ink-800 transition-colors">
                 <Power size={14} /> {active ? 'Desativar' : 'Ativar'}
               </button>
@@ -293,6 +292,9 @@ function ServiceForm({ initial, onSave, loading }: { initial: Service | null; on
     duracao_min: initial?.duracao_min ?? 30,
     valor: Number(initial?.valor ?? 0),
     ativo: initial?.ativo ?? true,
+    lc116_code: initial?.lc116_code ?? '04.01',
+    codigo_tributacao_municipio: initial?.codigo_tributacao_municipio ?? '',
+    iss_aliquota: Number(initial?.iss_aliquota ?? 0)
   });
 
   const submit = (e: React.FormEvent) => {
@@ -302,14 +304,23 @@ function ServiceForm({ initial, onSave, loading }: { initial: Service | null; on
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
       <div><label className="label">Nome</label><input className="input" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required autoFocus disabled={loading} /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="label">Duração (min)</label><input className="input" type="number" step={5} min={5} value={form.duracao_min} onChange={(e) => setForm({ ...form, duracao_min: +e.target.value })} required disabled={loading} /></div>
         <div><label className="label">Valor (R$)</label><input className="input" type="number" step="0.01" min={0} value={form.valor} onChange={(e) => setForm({ ...form, valor: +e.target.value })} required disabled={loading} /></div>
       </div>
-      <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={loading}>
-        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Salvar'}
+      
+      <div className="pt-4 border-t border-ink-800 space-y-4">
+        <h4 className="text-[10px] font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="label text-[10px]">Cód. LC116</label><input className="input" value={form.lc116_code} onChange={e => setForm({ ...form, lc116_code: e.target.value })} /></div>
+          <div><label className="label text-[10px]">ISS (%)</label><input className="input" type="number" step="0.01" value={form.iss_aliquota} onChange={e => setForm({ ...form, iss_aliquota: +e.target.value })} /></div>
+        </div>
+      </div>
+
+      <button className="btn-primary w-full flex items-center justify-center gap-2 py-3 mt-4" disabled={loading}>
+        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Salvar Serviço'}
       </button>
     </form>
   );
@@ -317,13 +328,28 @@ function ServiceForm({ initial, onSave, loading }: { initial: Service | null; on
 
 function ProductForm({ initial, onSave, loading }: { initial: Product | null; onSave: (v: any) => void; loading: boolean }) {
   const { barbershop } = useAuth();
+  const [subTab, setSubTab] = useState<'geral' | 'estoque' | 'fiscal'>(initial ? 'geral' : 'geral');
   const [form, setForm] = useState({
-    nome: initial?.nome ?? '', sku: initial?.sku ?? '',
-    custo: Number(initial?.custo ?? 0), preco: Number(initial?.preco ?? 0),
-    estoque: initial?.estoque ?? 0, estoque_min: initial?.estoque_min ?? 0,
+    nome: initial?.nome ?? '',
+    sku: initial?.sku ?? '',
+    custo: Number(initial?.custo ?? 0),
+    preco: Number(initial?.preco ?? 0),
+    estoque_min: initial?.estoque_min ?? 5,
     comissao_percentual: Number(initial?.comissao_percentual ?? 0),
-    ativo: initial?.ativo ?? true, foto_url: initial?.foto_url ?? '',
+    ativo: initial?.ativo ?? true,
+    foto_url: initial?.foto_url ?? '',
+    ncm: initial?.ncm ?? '',
+    cest: initial?.cest ?? '',
+    origem: initial?.origem ?? 0,
+    cfop: initial?.cfop ?? '5102',
+    csosn: initial?.csosn ?? '102',
+    icms_aliquota: Number(initial?.icms_aliquota ?? 0),
+    pis_aliquota: Number(initial?.pis_aliquota ?? 0),
+    cofins_aliquota: Number(initial?.cofins_aliquota ?? 0),
+    estoque_geral: initial?.estoque_geral ?? 0,
+    estoque_fiscal: initial?.estoque_fiscal ?? 0,
   });
+  
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -341,51 +367,102 @@ function ProductForm({ initial, onSave, loading }: { initial: Product | null; on
   };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-5 max-h-[80vh] overflow-y-auto px-1">
+      {/* Sub-tabs logic only for Edit */}
       {initial && (
-        <div className="flex items-center gap-4 mb-2">
-          <div className="w-20 h-20 rounded-lg bg-ink-900 border border-border overflow-hidden flex items-center justify-center cursor-pointer hover:bg-ink-800 transition-colors"
-               onClick={() => inputRef.current?.click()}>
-            {form.foto_url ? <img src={form.foto_url} alt="product" className="w-full h-full object-cover" /> : <Camera size={24} className="text-ink-600" />}
-            {uploading && <div className="absolute inset-0 bg-ink-950/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-ink-50/30 border-t-ink-50 rounded-full animate-spin" /></div>}
-          </div>
-          <div className="text-xs text-ink-500">
-            <p>Clique ao lado para alterar a foto.</p>
-            <button type="button" onClick={() => setForm(p => ({ ...p, foto_url: '' }))} className="text-red-500 mt-1">Remover foto</button>
-          </div>
-          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
+        <div className="flex gap-2 border-b border-ink-800 pb-px mb-4 overflow-x-auto">
+          {[
+            { id: 'geral', label: 'Básico', icon: Settings2 },
+            { id: 'estoque', label: 'Estoque', icon: Calculator },
+            { id: 'fiscal', label: 'Fiscal', icon: ShieldCheck }
+          ].map(t => (
+            <button key={t.id} type="button" onClick={() => setSubTab(t.id as any)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${subTab === t.id ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>
+              <t.icon size={12} /> {t.label}
+            </button>
+          ))}
         </div>
       )}
 
-      <div><label className="label">Nome</label><input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required disabled={loading} /></div>
-      <div><label className="label">SKU</label><input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} disabled={loading} /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Custo</label><input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} disabled={loading} /></div>
-        <div><label className="label">Preço de Venda</label><input className="input" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} disabled={loading} /></div>
-        {!initial && (
-          <div><label className="label">Estoque Inicial</label><input className="input" type="number" value={form.estoque} onChange={e => setForm({ ...form, estoque: +e.target.value })} disabled={loading} /></div>
-        )}
-        <div><label className="label">Estoque Mín.</label><input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} disabled={loading} /></div>
-        <div className={initial ? 'col-span-2' : ''}><label className="label">Comissão em Venda (%)</label><input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} disabled={loading} /></div>
-      </div>
-      <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={loading || uploading}>
-        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Salvar Produto'}
-      </button>
-    </form>
-  );
-}
+      {(subTab === 'geral' || !initial) && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {initial && (
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-lg bg-ink-900 border border-border overflow-hidden flex items-center justify-center cursor-pointer" onClick={() => inputRef.current?.click()}>
+                {form.foto_url ? <img src={form.foto_url} className="w-full h-full object-cover" /> : <Camera size={20} className="text-ink-700" />}
+              </div>
+              <div className="text-[10px] text-ink-500">
+                <button type="button" onClick={() => inputRef.current?.click()} className="text-ink-200 font-bold block">Alterar Foto</button>
+                <button type="button" onClick={() => setForm(p => ({ ...p, foto_url: '' }))} className="text-red-500 mt-1">Remover</button>
+              </div>
+              <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
+            </div>
+          )}
 
-function StockForm({ onSave, loading }: { onSave: (qtd: number, motivo: string) => void, loading: boolean }) {
-  const [qtd, setQtd] = useState(1);
-  const [motivo, setMotivo] = useState('Compra');
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(qtd, motivo); }} className="space-y-4">
-      <div><label className="label">Quantidade</label>
-        <input className="input" type="number" min={1} value={qtd} onChange={e => setQtd(+e.target.value)} disabled={loading} /></div>
-      <div><label className="label">Motivo</label>
-        <input className="input" value={motivo} onChange={e => setMotivo(e.target.value)} disabled={loading} /></div>
-      <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={loading}>
-        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : 'Registrar Entrada'}
+          <div><label className="label text-[10px]">Nome do Produto</label><input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required disabled={loading} /></div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label text-[10px]">Preço de Venda</label><input className="input font-bold text-emerald-50" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} required disabled={loading} /></div>
+            <div><label className="label text-[10px]">Custo</label><input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} disabled={loading} /></div>
+          </div>
+
+          {!initial && (
+            <div className="pt-4 border-t border-ink-800 space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-ink-500 tracking-widest">Estoque de Abertura</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label text-[10px]">Saldo GERAL</label><input className="input" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} /></div>
+                <div><label className="label text-[10px]">Saldo PADRÃO (Fiscal)</label><input className="input" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} /></div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === 'estoque' && initial && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="card p-4 space-y-3 bg-ink-900/30">
+              <h4 className="text-[9px] font-black uppercase text-ink-500 tracking-tighter">Estoque GERAL</h4>
+              <div className="flex items-center gap-3">
+                <button type="button" className="btn-ghost p-1" onClick={() => setForm(f => ({ ...f, estoque_geral: Math.max(0, f.estoque_geral - 1) }))}><X size={14} /></button>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-2xl font-bold text-center w-full" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
+                <button type="button" className="btn-ghost p-1" onClick={() => setForm(f => ({ ...f, estoque_geral: f.estoque_geral + 1 }))}><Plus size={14} /></button>
+              </div>
+            </div>
+            <div className="card p-4 space-y-3 bg-emerald-500/5 border-emerald-500/10">
+              <h4 className="text-[9px] font-black uppercase text-emerald-500 tracking-tighter">Estoque PADRÃO</h4>
+              <div className="flex items-center gap-3">
+                <button type="button" className="btn-ghost p-1" onClick={() => setForm(f => ({ ...f, estoque_fiscal: Math.max(0, f.estoque_fiscal - 1) }))}><X size={14} /></button>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-2xl font-bold text-center w-full text-emerald-50" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
+                <button type="button" className="btn-ghost p-1" onClick={() => setForm(f => ({ ...f, estoque_fiscal: f.estoque_fiscal + 1 }))}><Plus size={14} /></button>
+              </div>
+            </div>
+          </div>
+          <div><label className="label text-[10px]">Estoque Mínimo (Alerta)</label><input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} /></div>
+        </div>
+      )}
+
+      {(subTab === 'fiscal' || !initial) && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="pt-4 border-t border-ink-800">
+            <h4 className="text-[10px] font-black uppercase text-ink-500 tracking-widest mb-3">Informações Fiscais</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label text-[10px]">NCM</label><input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="8 dígitos" /></div>
+              <div><label className="label text-[10px]">CEST</label><input className="input" value={form.cest} onChange={e => setForm({ ...form, cest: e.target.value })} placeholder="7 dígitos" /></div>
+              <div><label className="label text-[10px]">CFOP Padrão</label><input className="input" value={form.cfop} onChange={e => setForm({ ...form, cfop: e.target.value })} /></div>
+              <div><label className="label text-[10px]">CSOSN / CST</label><input className="input" value={form.csosn} onChange={e => setForm({ ...form, csosn: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              <div><label className="label text-[10px]">ICMS (%)</label><input className="input" type="number" step="0.01" value={form.icms_aliquota} onChange={e => setForm({ ...form, icms_aliquota: +e.target.value })} /></div>
+              <div><label className="label text-[10px]">PIS (%)</label><input className="input" type="number" step="0.01" value={form.pis_aliquota} onChange={e => setForm({ ...form, pis_aliquota: +e.target.value })} /></div>
+              <div><label className="label text-[10px]">COFINS (%)</label><input className="input" type="number" step="0.01" value={form.cofins_aliquota} onChange={e => setForm({ ...form, cofins_aliquota: +e.target.value })} /></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button className="btn-primary w-full flex items-center justify-center gap-2 py-3 mt-4 text-[11px] font-black uppercase tracking-widest" disabled={loading || uploading}>
+        {loading ? <div className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" /> : initial ? 'Salvar Alterações' : 'Cadastrar Produto'}
       </button>
     </form>
   );

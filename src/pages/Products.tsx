@@ -5,12 +5,12 @@ import { useAuth } from '../lib/auth-context';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { 
-  Plus, Search, Package, AlertTriangle, ArrowUpRight, ArrowDownRight, 
-  History, Camera, X, Check, Save, Receipt, Calculator
+  Plus, Search, Package, AlertTriangle, 
+  History, Camera, X, Check, Receipt, Calculator, Settings2, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBRL } from '../lib/utils';
-import type { Product, FiscalNote } from '../types/db';
+import type { Product } from '../types/db';
 
 export default function Products() {
   const { barbershop } = useAuth();
@@ -18,7 +18,6 @@ export default function Products() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'inventory' | 'pdv' | 'history'>('inventory');
   const [modal, setModal] = useState<Product | 'new' | null>(null);
-  const [stockModal, setStockModal] = useState<Product | null>(null);
   const [editModal, setEditModal] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery({
@@ -57,29 +56,17 @@ export default function Products() {
     setEditModal(null);
   };
 
-  const updateStock = async (p: Product, qtd: number, motivo: string) => {
-    const { error } = await supabase.rpc('update_product_stock', {
-      p_id: p.id,
-      p_qtd: qtd,
-      p_motivo: motivo
-    });
-    if (error) return toast.error(error.message);
-    toast.success('Estoque atualizado');
-    qc.invalidateQueries({ queryKey: ['products'] });
-    setStockModal(null);
-  };
-
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <PageHeader title="Produtos e Estoque" />
 
-      <div className="flex gap-1 border-b border-ink-800 mb-6">
+      <div className="flex gap-1 border-b border-ink-800 mb-6 overflow-x-auto">
         <button onClick={() => setTab('inventory')} 
-          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'inventory' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Estoque</button>
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors whitespace-nowrap ${tab === 'inventory' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Estoque</button>
         <button onClick={() => setTab('pdv')} 
-          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'pdv' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Frente de Caixa</button>
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors whitespace-nowrap ${tab === 'pdv' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Frente de Caixa</button>
         <button onClick={() => setTab('history')} 
-          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${tab === 'history' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Movimentações</button>
+          className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors whitespace-nowrap ${tab === 'history' ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>Movimentações</button>
       </div>
 
       {tab === 'inventory' && (
@@ -93,37 +80,40 @@ export default function Products() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isLoading ? [1,2,3].map(i => <div key={i} className="card h-40 animate-pulse bg-ink-900/50" />) : 
+            {isLoading ? [1,2,3].map(i => <div key={i} className="card h-48 animate-pulse bg-ink-900/50" />) : 
              filtered.map(p => (
-              <div key={p.id} className="card p-4 hover:border-ink-700 transition-colors group">
-                <div className="flex gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-ink-900 border border-ink-800 flex items-center justify-center overflow-hidden shrink-0">
-                    {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover" /> : <Package className="text-ink-700" size={24} />}
+              <div key={p.id} className="card p-4 hover:border-ink-700 transition-colors group flex flex-col justify-between">
+                <div>
+                  <div className="flex gap-4">
+                    <div className="w-16 h-16 rounded-lg bg-ink-900 border border-ink-800 flex items-center justify-center overflow-hidden shrink-0">
+                      {p.foto_url ? <img src={p.foto_url} className="w-full h-full object-cover" /> : <Package className="text-ink-700" size={24} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-ink-50 truncate">{p.nome}</h3>
+                      <p className="text-[10px] text-ink-500 mb-1">{p.sku || 'Sem SKU'}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-ink-100">{formatBRL(p.preco)}</span>
+                        {(p.estoque_geral + p.estoque_fiscal) <= p.estoque_min && <AlertTriangle size={14} className="text-amber-500" title="Estoque Baixo" />}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-ink-50 truncate">{p.nome}</h3>
-                    <p className="text-[10px] text-ink-500 mb-1">{p.sku || 'Sem SKU'}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-ink-100">{formatBRL(p.preco)}</span>
-                      {p.estoque <= p.estoque_min && <AlertTriangle size={14} className="text-amber-500" />}
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="text-center p-2 rounded bg-ink-950/50 border border-ink-800/50">
+                      <p className="text-[8px] text-ink-500 uppercase font-black tracking-tighter">GERAL (S/ NF)</p>
+                      <p className="text-lg font-bold text-ink-100 leading-none mt-1">{p.estoque_geral}</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-emerald-500/5 border border-emerald-500/10">
+                      <p className="text-[8px] text-emerald-500 uppercase font-black tracking-tighter">PADRÃO (C/ NF)</p>
+                      <p className="text-lg font-bold text-emerald-50 leading-none mt-1">{p.estoque_fiscal}</p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-4 pt-4 border-t border-ink-800 grid grid-cols-2 gap-2">
-                  <div className="text-center p-2 rounded bg-ink-950/50 border border-ink-800/50">
-                    <p className="text-[9px] text-ink-500 uppercase font-bold tracking-tighter">Geral</p>
-                    <p className="text-lg font-bold text-ink-100 leading-none mt-1">{p.estoque_geral}</p>
-                  </div>
-                  <div className="text-center p-2 rounded bg-emerald-500/5 border border-emerald-500/10">
-                    <p className="text-[9px] text-emerald-500 uppercase font-bold tracking-tighter">Padrão (NF)</p>
-                    <p className="text-lg font-bold text-emerald-50 leading-none mt-1">{p.estoque_fiscal}</p>
-                  </div>
-                </div>
 
-                <div className="mt-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="btn-secondary flex-1 py-1.5 text-[10px]" onClick={() => setEditModal(p)}>Editar</button>
-                  <button className="btn-ghost py-1.5 text-[10px]" onClick={() => setStockModal(p)}>Entrada</button>
+                <div className="mt-4 flex gap-2">
+                  <button className="btn-secondary flex-1 py-1.5 text-[10px] uppercase font-bold" onClick={() => setEditModal(p)}>
+                    <Settings2 size={12} className="mr-1" /> Editar & Estoque
+                  </button>
                 </div>
               </div>
             ))}
@@ -135,14 +125,10 @@ export default function Products() {
       {tab === 'history' && <HistoryTab />}
 
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal === 'new' ? 'Novo Produto' : 'Editar Produto'}>
-        <ProductForm initial={modal === 'new' ? null : modal} onSave={saveProduct} />
+        <ProductForm onSave={saveProduct} />
       </Modal>
 
-      <Modal open={!!stockModal} onClose={() => setStockModal(null)} title="Registrar Entrada de Estoque">
-        {stockModal && <StockForm onSave={(qtd, motivo) => updateStock(stockModal, qtd, motivo)} />}
-      </Modal>
-
-      <Modal open={!!editModal} onClose={() => setEditModal(null)} title="Configurações do Produto">
+      <Modal open={!!editModal} onClose={() => setEditModal(null)} title="Gerenciar Produto">
         {editModal && <EditModal product={editModal} onSave={saveEdit} />}
       </Modal>
     </div>
@@ -152,6 +138,7 @@ export default function Products() {
 /* ─── helpers ─────────────────────────────────────────────────── */
 function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<Product>) => void }) {
   const { barbershop } = useAuth();
+  const [subTab, setSubTab] = useState<'geral' | 'estoque' | 'fiscal'>('geral');
   const [form, setForm] = useState({
     nome: product.nome,
     sku: product.sku ?? '',
@@ -170,6 +157,7 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<
     cofins_aliquota: Number(product.cofins_aliquota ?? 0),
     estoque_geral: product.estoque_geral ?? 0,
     estoque_fiscal: product.estoque_fiscal ?? 0,
+    estoque_min: product.estoque_min ?? 0,
   });
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -187,201 +175,208 @@ function EditModal({ product, onSave }: { product: Product; onSave: (v: Partial<
     toast.success('Foto carregada');
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal });
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal }); }} className="space-y-5 max-h-[70vh] overflow-y-auto px-1">
-      <div>
-        <label className="label">Foto do produto</label>
-        <div className="flex items-center gap-4">
-          <div className="w-24 h-24 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-hover-soft transition-colors relative overflow-hidden"
-            style={{ borderColor: 'var(--border)' }} onClick={() => inputRef.current?.click()}>
-            {form.foto_url ? (
-              <>
-                <img src={form.foto_url} alt="foto" className="absolute inset-0 w-full h-full object-cover rounded-lg" />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg">
-                  <Camera size={20} className="text-white" />
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto px-1">
+      <div className="flex gap-2 border-b border-ink-800 pb-px mb-4">
+        {[
+          { id: 'geral', label: 'Dados Básicos', icon: Settings2 },
+          { id: 'estoque', label: 'Estoque', icon: Calculator },
+          { id: 'fiscal', label: 'Fiscal / Impostos', icon: ShieldCheck }
+        ].map(t => (
+          <button key={t.id} type="button" onClick={() => setSubTab(t.id as any)}
+            className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all ${subTab === t.id ? 'border-ink-50 text-ink-50' : 'border-transparent text-ink-500'}`}>
+            <t.icon size={12} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'geral' && (
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          <div className="flex items-center gap-6">
+            <div className="w-24 h-24 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-hover-soft transition-all relative overflow-hidden shrink-0"
+              style={{ borderColor: 'var(--border)' }} onClick={() => inputRef.current?.click()}>
+              {form.foto_url ? (
+                <>
+                  <img src={form.foto_url} alt="foto" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                    <Camera size={20} className="text-white" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-1">
+                  <Camera size={20} className="text-muted" />
+                  <span className="text-[10px] text-muted">{uploading ? '...' : 'Foto'}</span>
                 </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-1">
-                <Camera size={20} className="text-muted" />
-                <span className="text-[10px] text-muted">{uploading ? 'Enviando…' : 'Clique'}</span>
+              )}
+            </div>
+            <div className="flex-1 space-y-4">
+              <div><label className="label text-[10px]">Nome do Produto</label><input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label text-[10px]">SKU / Código</label><input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
+                <div><label className="label text-[10px]">Comissão (%)</label><input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} /></div>
               </div>
-            )}
+            </div>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); }} />
           </div>
-          <div className="flex-1 text-xs text-muted">
-            <p>JPG ou PNG, até 5MB.</p>
-            {form.foto_url && (
-              <button type="button" className="flex items-center gap-1 mt-2 text-red-400 hover:text-red-300" onClick={() => setForm(prev => ({ ...prev, foto_url: '' }))}>
-                <X size={12} /> Remover foto
-              </button>
-            )}
-          </div>
-          <input ref={inputRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); }} />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <label className="label">Nome</label>
-          <input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required />
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="p-3 rounded-lg bg-ink-900 border border-ink-800">
+              <label className="label text-[10px] text-ink-500 mb-1">Preço de Custo</label>
+              <div className="flex items-center gap-2">
+                <span className="text-ink-500 font-bold">R$</span>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-lg font-bold text-ink-50 w-full" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} />
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <label className="label text-[10px] text-emerald-500/70 mb-1">Preço de Venda</label>
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-500 font-bold">R$</span>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-lg font-bold text-emerald-50 w-full" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} />
+              </div>
+            </div>
+          </div>
+          
+          <label className="flex items-center gap-2 text-xs text-ink-300 px-1 cursor-pointer">
+            <input type="checkbox" checked={form.ativo} onChange={e => setForm({ ...form, ativo: e.target.checked })} className="rounded border-ink-800" />
+            Produto ativo para venda
+          </label>
         </div>
-        <div>
-          <label className="label">Custo (R$)</label>
-          <input className="input" type="number" step="0.01" min={0} value={form.custo} onChange={(e) => setForm({ ...form, custo: +e.target.value })} required />
-        </div>
-        <div>
-          <label className="label">Preço de venda (R$)</label>
-          <input className="input" type="number" step="0.01" min={0} value={form.preco} onChange={(e) => setForm({ ...form, preco: +e.target.value })} required />
-        </div>
-      </div>
+      )}
 
-      <div className="pt-4 border-t border-ink-800 space-y-4">
-        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest flex items-center gap-2"><Calculator size={14} /> Gestão de Estoque</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-ink-900/50 p-3 rounded-lg border border-ink-800">
-            <label className="label text-[10px] text-ink-400">Estoque GERAL (Sem NF)</label>
-            <input className="input mt-1 font-bold text-lg" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
-          </div>
-          <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/10">
-            <label className="label text-[10px] text-emerald-400">Estoque PADRÃO (Com NF)</label>
-            <input className="input mt-1 font-bold text-lg text-emerald-50" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
-          </div>
-        </div>
-        <p className="text-[10px] text-ink-600 italic -mt-2">O estoque total deste item é: {form.estoque_geral + form.estoque_fiscal}</p>
-      </div>
+      {subTab === 'estoque' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="card p-4 space-y-3 bg-ink-900/30">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-black uppercase text-ink-500 tracking-tighter">Estoque GERAL (Sem NF)</h4>
+                <Package size={14} className="text-ink-700" />
+              </div>
+              <div className="flex items-center gap-4">
+                <button type="button" className="btn-ghost p-2" onClick={() => setForm(f => ({ ...f, estoque_geral: Math.max(0, f.estoque_geral - 1) }))}><X size={14} /></button>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-3xl font-bold text-center w-full text-ink-100" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
+                <button type="button" className="btn-ghost p-2" onClick={() => setForm(f => ({ ...f, estoque_geral: f.estoque_geral + 1 }))}><Plus size={14} /></button>
+              </div>
+              <p className="text-[9px] text-ink-600 text-center italic">Saldo para vendas gerenciais internas.</p>
+            </div>
 
-      <div className="pt-4 border-t border-ink-800 space-y-4">
-        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest flex items-center gap-2"><Receipt size={14} /> Informações Fiscais</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">NCM</label>
-            <input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" />
+            <div className="card p-4 space-y-3 bg-emerald-500/5 border-emerald-500/10">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-black uppercase text-emerald-500 tracking-tighter">Estoque PADRÃO (Com NF)</h4>
+                <ShieldCheck size={14} className="text-emerald-700" />
+              </div>
+              <div className="flex items-center gap-4">
+                <button type="button" className="btn-ghost p-2 text-emerald-700" onClick={() => setForm(f => ({ ...f, estoque_fiscal: Math.max(0, f.estoque_fiscal - 1) }))}><X size={14} /></button>
+                <input className="bg-transparent border-none p-0 focus:ring-0 text-3xl font-bold text-center w-full text-emerald-50" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
+                <button type="button" className="btn-ghost p-2 text-emerald-700" onClick={() => setForm(f => ({ ...f, estoque_fiscal: f.estoque_fiscal + 1 }))}><Plus size={14} /></button>
+              </div>
+              <p className="text-[9px] text-emerald-500/40 text-center italic">Saldo para emissão de nota fiscal (NFC-e).</p>
+            </div>
           </div>
-          <div>
-            <label className="label">Origem</label>
-            <select className="input" value={form.origem} onChange={e => setForm({ ...form, origem: +e.target.value })}>
-              <option value={0}>0 - Nacional</option>
-              <option value={1}>1 - Estrangeira - Imp. Direta</option>
-              <option value={2}>2 - Estrangeira - Adq. Mercado Interno</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">CFOP Padrão</label>
-            <input className="input" value={form.cfop} onChange={e => setForm({ ...form, cfop: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">CSOSN / CST</label>
-            <input className="input" value={form.csosn} onChange={e => setForm({ ...form, csosn: e.target.value })} />
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="label text-[10px]">ICMS (%)</label>
-            <input className="input" type="number" step="0.01" value={form.icms_aliquota} onChange={e => setForm({ ...form, icms_aliquota: +e.target.value })} />
-          </div>
-          <div>
-            <label className="label text-[10px]">PIS (%)</label>
-            <input className="input" type="number" step="0.01" value={form.pis_aliquota} onChange={e => setForm({ ...form, pis_aliquota: +e.target.value })} />
-          </div>
-          <div>
-            <label className="label text-[10px]">COFINS (%)</label>
-            <input className="input" type="number" step="0.01" value={form.cofins_aliquota} onChange={e => setForm({ ...form, cofins_aliquota: +e.target.value })} />
-          </div>
-        </div>
-      </div>
 
-      <button className="btn-primary w-full" disabled={uploading}>Salvar alterações</button>
+          <div className="card p-4 bg-ink-900 border-ink-800 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-ink-500 uppercase tracking-widest">Estoque Mínimo para Alerta</p>
+              <p className="text-[9px] text-ink-600">O sistema avisará quando o total (Geral + Padrão) for inferior a este valor.</p>
+            </div>
+            <input className="input w-20 text-center font-bold" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} />
+          </div>
+
+          <div className="text-center">
+            <span className="text-[10px] font-bold text-ink-500 uppercase tracking-widest">Total em Inventário: </span>
+            <span className="text-sm font-bold text-ink-50 ml-1">{form.estoque_geral + form.estoque_fiscal} unidades</span>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'fiscal' && (
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          <div className="bg-ink-900/50 p-4 rounded-lg border border-ink-800 space-y-4">
+            <h4 className="text-[10px] font-bold text-ink-400 uppercase tracking-widest flex items-center gap-2"><Receipt size={14} /> Classificação do Produto</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label text-[10px]">NCM (8 dígitos)</label><input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" /></div>
+              <div><label className="label text-[10px]">CEST (7 dígitos)</label><input className="input" value={form.cest} onChange={e => setForm({ ...form, cest: e.target.value })} placeholder="Ex: 28.038.00" /></div>
+              <div>
+                <label className="label text-[10px]">Origem</label>
+                <select className="input text-[10px]" value={form.origem} onChange={e => setForm({ ...form, origem: +e.target.value })}>
+                  <option value={0}>0 - Nacional</option>
+                  <option value={1}>1 - Estrangeira - Importação Direta</option>
+                  <option value={2}>2 - Estrangeira - Adq. Mercado Interno</option>
+                </select>
+              </div>
+              <div><label className="label text-[10px]">CFOP Padrão</label><input className="input" value={form.cfop} onChange={e => setForm({ ...form, cfop: e.target.value })} /></div>
+            </div>
+          </div>
+
+          <div className="bg-emerald-500/5 p-4 rounded-lg border border-emerald-500/10 space-y-4">
+            <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2"><Calculator size={14} /> Alíquotas de Impostos</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label text-[10px]">CSOSN / CST</label><input className="input" value={form.csosn} onChange={e => setForm({ ...form, csosn: e.target.value })} /></div>
+              <div><label className="label text-[10px]">ICMS (%)</label><input className="input" type="number" step="0.01" value={form.icms_aliquota} onChange={e => setForm({ ...form, icms_aliquota: +e.target.value })} /></div>
+              <div><label className="label text-[10px]">PIS (%)</label><input className="input" type="number" step="0.01" value={form.pis_aliquota} onChange={e => setForm({ ...form, pis_aliquota: +e.target.value })} /></div>
+              <div><label className="label text-[10px]">COFINS (%)</label><input className="input" type="number" step="0.01" value={form.cofins_aliquota} onChange={e => setForm({ ...form, cofins_aliquota: +e.target.value })} /></div>
+            </div>
+            <p className="text-[9px] text-emerald-500/50 leading-relaxed italic">
+              * Deixe as alíquotas zeradas para usar o padrão configurado globalmente nas Configurações Fiscais da barbearia.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="pt-6 border-t border-ink-800 flex gap-3">
+        <button type="button" className="btn-ghost flex-1 py-3 text-xs uppercase font-bold" onClick={() => onSave({})}>Cancelar</button>
+        <button type="submit" className="btn-primary flex-[2] py-3 text-xs uppercase font-bold flex items-center justify-center gap-2">
+          <Save size={16} /> Salvar Alterações
+        </button>
+      </div>
     </form>
   );
 }
 
-function ProductForm({ initial, onSave }: { initial: Product | null; onSave: (v: any) => void }) {
+function ProductForm({ onSave }: { onSave: (v: any) => void }) {
   const [form, setForm] = useState({
-    nome: initial?.nome ?? '', sku: initial?.sku ?? '',
-    custo: Number(initial?.custo ?? 0), preco: Number(initial?.preco ?? 0),
-    estoque_min: initial?.estoque_min ?? 0,
-    comissao_percentual: Number(initial?.comissao_percentual ?? 0),
-    ativo: initial?.ativo ?? true, foto_url: initial?.foto_url ?? '',
-    ncm: initial?.ncm ?? '',
-    cest: initial?.cest ?? '',
-    origem: initial?.origem ?? 0,
-    cfop: initial?.cfop ?? '5102',
-    csosn: initial?.csosn ?? '102',
-    icms_aliquota: Number(initial?.icms_aliquota ?? 0),
-    pis_aliquota: Number(initial?.pis_aliquota ?? 0),
-    cofins_aliquota: Number(initial?.cofins_aliquota ?? 0),
-    estoque_geral: initial?.estoque_geral ?? 0,
-    estoque_fiscal: initial?.estoque_fiscal ?? 0,
+    nome: '', sku: '', custo: 0, preco: 0,
+    estoque_min: 5, comissao_percentual: 0, ativo: true,
+    ncm: '', cest: '', origem: 0, cfop: '5102', csosn: '102',
+    icms_aliquota: 0, pis_aliquota: 0, cofins_aliquota: 0,
+    estoque_geral: 0, estoque_fiscal: 0,
   });
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal }); }} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-      <div><label className="label">Nome</label>
-        <input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required autoFocus /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">SKU</label>
-          <input className="input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
-        <div><label className="label">Comissão (%)</label>
-          <input className="input" type="number" step="0.01" value={form.comissao_percentual} onChange={e => setForm({ ...form, comissao_percentual: +e.target.value })} /></div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Custo</label>
-          <input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} /></div>
-        <div><label className="label">Preço</label>
-          <input className="input" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} /></div>
+    <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, estoque: form.estoque_geral + form.estoque_fiscal }); }} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2"><label className="label text-[10px]">Nome do Produto</label><input className="input" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} required autoFocus /></div>
+        <div><label className="label text-[10px]">Preço de Venda</label><input className="input font-bold text-emerald-50" type="number" step="0.01" value={form.preco} onChange={e => setForm({ ...form, preco: +e.target.value })} required /></div>
+        <div><label className="label text-[10px]">Custo</label><input className="input" type="number" step="0.01" value={form.custo} onChange={e => setForm({ ...form, custo: +e.target.value })} /></div>
       </div>
 
       <div className="pt-4 border-t border-ink-800 space-y-3">
-        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Estoque Inicial</h4>
+        <h4 className="text-[10px] font-black uppercase text-ink-500 tracking-widest">Estoque de Abertura</h4>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label text-[10px]">GERAL (Sem NF)</label>
-            <input className="input" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} />
-          </div>
-          <div>
-            <label className="label text-[10px]">PADRÃO (Com NF)</label>
-            <input className="input" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <label className="label text-[10px]">Estoque Mínimo (Alerta)</label>
-          <input className="input" type="number" value={form.estoque_min} onChange={e => setForm({ ...form, estoque_min: +e.target.value })} />
+          <div><label className="label text-[10px]">Saldo GERAL</label><input className="input" type="number" value={form.estoque_geral} onChange={e => setForm({ ...form, estoque_geral: +e.target.value })} /></div>
+          <div><label className="label text-[10px]">Saldo PADRÃO (Fiscal)</label><input className="input border-emerald-500/20" type="number" value={form.estoque_fiscal} onChange={e => setForm({ ...form, estoque_fiscal: +e.target.value })} /></div>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-ink-800 space-y-4">
-        <h4 className="text-xs font-bold text-ink-500 uppercase tracking-widest">Informações Fiscais</h4>
+      <div className="pt-4 border-t border-ink-800 space-y-3">
+        <h4 className="text-[10px] font-black uppercase text-ink-500 tracking-widest">Informações Fiscais Básicas</h4>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">NCM</label>
-            <input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" />
-          </div>
-          <div>
-            <label className="label">Origem</label>
-            <select className="input" value={form.origem} onChange={e => setForm({ ...form, origem: +e.target.value })}>
-              <option value={0}>0 - Nacional</option>
-              <option value={1}>1 - Estrangeira - Imp. Direta</option>
-              <option value={2}>2 - Estrangeira - Adq. Mercado Interno</option>
-            </select>
-          </div>
+          <div><label className="label text-[10px]">NCM</label><input className="input" value={form.ncm} onChange={e => setForm({ ...form, ncm: e.target.value })} placeholder="Ex: 3305.10.00" /></div>
+          <div><label className="label text-[10px]">CEST</label><input className="input" value={form.cest} onChange={e => setForm({ ...form, cest: e.target.value })} placeholder="Ex: 28.038.00" /></div>
+          <div><label className="label text-[10px]">CFOP Padrão</label><input className="input" value={form.cfop} onChange={e => setForm({ ...form, cfop: e.target.value })} /></div>
+          <div><label className="label text-[10px]">CSOSN / CST</label><input className="input" value={form.csosn} onChange={e => setForm({ ...form, csosn: e.target.value })} /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><label className="label text-[10px]">ICMS (%)</label><input className="input" type="number" step="0.01" value={form.icms_aliquota} onChange={e => setForm({ ...form, icms_aliquota: +e.target.value })} /></div>
+          <div><label className="label text-[10px]">PIS (%)</label><input className="input" type="number" step="0.01" value={form.pis_aliquota} onChange={e => setForm({ ...form, pis_aliquota: +e.target.value })} /></div>
+          <div><label className="label text-[10px]">COFINS (%)</label><input className="input" type="number" step="0.01" value={form.cofins_aliquota} onChange={e => setForm({ ...form, cofins_aliquota: +e.target.value })} /></div>
         </div>
       </div>
 
-      <button className="btn-primary w-full">Criar produto</button>
-    </form>
-  );
-}
-
-function StockForm({ onSave }: { onSave: (qtd: number, motivo: string) => void }) {
-  const [qtd, setQtd] = useState(1);
-  const [motivo, setMotivo] = useState('Compra');
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(qtd, motivo); }} className="space-y-4">
-      <div><label className="label">Quantidade</label>
-        <input className="input" type="number" min={1} value={qtd} onChange={e => setQtd(+e.target.value)} /></div>
-      <div><label className="label">Motivo</label>
-        <input className="input" value={motivo} onChange={e => setMotivo(e.target.value)} /></div>
-      <button className="btn-primary w-full">Registrar entrada</button>
+      <button className="btn-primary w-full py-3 mt-4 text-[11px] font-black uppercase tracking-widest">Cadastrar Produto</button>
     </form>
   );
 }
@@ -426,7 +421,6 @@ function PDVTab({ products }: { products: Product[] }) {
       if (data) orderId = data;
     }
 
-    // Fiscal Note Emission
     if (barbershop.fiscal_enabled && orderId) {
       try {
         await supabase.functions.invoke('emit-fiscal-note', {
@@ -448,7 +442,7 @@ function PDVTab({ products }: { products: Product[] }) {
 
   if (done) {
     return (
-      <div className="card p-12 text-center space-y-6">
+      <div className="card p-12 text-center space-y-6 animate-in zoom-in-95 duration-300">
         <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
           <Check size={40} />
         </div>
